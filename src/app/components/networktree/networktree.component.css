@@ -1,0 +1,281 @@
+/* Using :host ::ng-deep if the style is in a component-specific CSS file */
+:host ::ng-deep .responsive-dialog {
+    width: 90vw;   
+    max-height: 100% !important ;    
+    /* max-width: 600px;   */
+}
+
+/* Optional: Adjust for larger screens specifically */
+@media screen and (min-width: 768px) {
+    :host ::ng-deep .responsive-dialog {
+        width: 60vw !important;   
+    }
+}
+.line_h_5{
+    line-height: 0.7 !important;
+}
+.fw_500{
+    font-weight: 600;
+}
+.sub_head{
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.form-label{
+    margin-bottom: 0;
+}
+:host ::ng-deep .p-dialog-header {
+    /* background-color: #f8f9fa; */
+    padding-top: 8px;
+    padding-bottom: 8px;
+    
+}
+
+:host ::ng-deep .custom-success-btn {
+    background-color: #6200ee !important;
+    border-color: #6200ee !important;
+    color: #ffffff !important;
+}
+.no_wrap_cell {
+  white-space: nowrap;
+}
+
+.col-name{
+  width:30%;
+}
+
+.col-status{
+  width:80px;
+  text-align:center;
+}
+
+.col-action{
+  width:140px;
+  text-align:center;
+}
+.col-folio{
+  width:70px;
+}
+th{
+    font-size: 0.9rem;
+}
+td{
+    font-size: 0.9rem;
+}
+
+
+/* root level */
+:host ::ng-deep .level-0{
+  background-color: #ffffff !important;
+  font-weight: 600;
+}
+
+/* 1st child */
+:host ::ng-deep .level-1{
+  background-color: #f3f9ff !important;
+}
+
+/* 2nd child */
+:host ::ng-deep .level-2{
+  background-color: #eef5ff;
+}
+
+/* 3rd child */
+.level-3{
+  background-color: #e8f8f0;
+}
+
+/* 4th child */
+.level-4{
+  background-color: #fff6e6;
+}
+
+/* optional hover */
+.p-treetable tbody tr:hover{
+  background-color: #e9ecef !important;
+}
+
+/* new code Css  */
+
+
+/* ═══════════════════════════════════════════════════════════
+ Responsive TreeTable
+═══════════════════════════════════════════════════════════ */
+
+/* Make the card horizontally scrollable on small screens */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scroll on iOS */
+}
+
+/* ── Column widths ────────────────────────────────────────── */
+.col-name {
+  /* min-width: 180px; */
+  white-space: nowrap;
+}
+.no-wrap {
+  white-space: nowrap;
+}
+.menu_item_drop{
+  border:none;
+  background:transparent;
+  padding:4px 8px;
+  text-align:left;
+  /* width:160px; */
+  cursor:pointer;
+}
+
+.menu_item_drop:hover{
+  background:#f5f5f5;
+}
+/* make dropdown appear above p-dialog */
+:host ::ng-deep .p-select-panel {
+  z-index: 11000 !important;
+}
+
+/* optional: also fix other overlays */
+:host ::ng-deep .p-dropdown-panel,
+:host ::ng-deep .p-overlaypanel {
+  z-index: 11000 !important;
+}
+/* ══════════════════════════════════════════════════════════
+   MOBILE  ≤ 768px  — Card layout (hide table, show cards)
+══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Hide the normal header row */
+ :host ::ng-deep .p-treetable .p-treetable-thead {
+    display: none !important;
+  }
+
+  /* Each body row becomes a card */
+ :host ::ng-deep .p-treetable .p-treetable-tbody > tr {
+    display: flex !important;
+    flex-direction: column !important;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+
+  /* Every <td> becomes a labeled row */
+ :host ::ng-deep .p-treetable .p-treetable-tbody > tr > td {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0 !important;
+    border: none !important;
+    font-size: 0.875rem;
+  }
+
+  /* Inject column label via data-label attribute */
+ :host ::ng-deep  .p-treetable .p-treetable-tbody > tr > td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.75rem;
+    min-width: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* Name cell — toggler + spinner stay inline */
+ :host ::ng-deep td.col-name {
+    font-weight: 600;
+    font-size: 0.95rem !important;
+    color: #212529;
+    padding-bottom: 0.5rem !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+    margin-bottom: 0.25rem;
+  }
+
+  /* Action button alignment */
+:host ::ng-deep  td.col-action {
+    justify-content: flex-end !important;
+    padding-top: 0.5rem !important;
+    border-top: 1px solid #f0f0f0 !important;
+  }
+
+  /* Search bar full width */
+  .col-md-5 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Header stack on mobile */
+  .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start !important;
+  }
+}
+
+/* ── Dialog responsive ────────────────────────────────────── */
+@media (max-width: 600px) {
+  ::ng-deep .responsive-dialog {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 0 auto;
+  }
+
+  ::ng-deep .responsive-dialog .p-dialog-content {
+    padding: 1rem !important;
+  }
+
+  .member-card .row > div {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* ── Member card inside dialog ────────────────────────────── */
+.member-card {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+}
+
+.member-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.member-field .label {
+  font-size: 0.72rem;
+  color: #6c757d;
+  display: block;
+  line-height: 1.2;
+}
+
+.member-field .value {
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: block;
+}
+
+/* ── Alert box ────────────────────────────────────────────── */
+.alert-box {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: #856404;
+  font-weight: 500;
+}
+
+/* ── Sub head ─────────────────────────────────────────────── */
+.sub-head {
+  font-size: 0.9rem;
+  color: #495057;
+  background: #f0f4ff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border-left: 3px solid #4361ee;
+}
+
+
+
+/* pdf Style  */

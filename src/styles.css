@@ -1,0 +1,52 @@
+/* You can add global styles to this file, and also import other style files */
+/* @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://unpkg.com/bootstrap@5.3.0/dist/css/bootstrap.min.css');
+@import url('https://unpkg.com/primeng/resources/themes/lara-light-blue/theme.css');
+@import url('https://unpkg.com/primeng/resources/primeng.min.css'); */
+
+@import "primeicons/primeicons.css";
+
+body {
+    background-color: #f8f9fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+
+.sidebar-menu {
+    height: 100vh;
+    background: #212529;
+    color: white;
+    transition: width 0.3s;
+}
+
+.sidebar-item {
+    padding: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+}
+
+.sidebar-item:hover {
+    background: #343a40;
+}
+
+.sidebar-item.active {
+    background: #10ab58;
+}
+/* added style   */
+ .network-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    /* .p-dialog {
+  z-index: 11000 !important;
+}
+
+.p-dialog-mask {
+  z-index: 10999 !important;
+} */
+ .p-datepicker, .p-select-panel, .p-dropdown-panel {
+    z-index: 11000 !important;
+}

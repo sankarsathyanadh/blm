@@ -1,0 +1,1305 @@
+<!-- eslint-disable @angular-eslint/template/prefer-control-flow -->
+<!-- eslint-disable @angular-eslint/template/interactive-supports-focus -->
+<!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
+<!-- eslint-disable @angular-eslint/template/label-has-associated-control -->
+
+<p-toast position="top-right" />
+
+<!-- eXCEL DIALOG  -->
+<p-dialog [header]="'Excel Preview — ' + excelFileName" [(visible)]="excelPreviewVisible" [modal]="true"
+  [maximizable]="true" [style]="{ width: '90vw' }" styleClass="excel-preview-dialog" (onHide)="closeExcelPreview()">
+
+  <!-- File info bar -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <span class="text-muted small">
+      <i class="pi pi-info-circle me-1"></i>
+      Showing preview from <strong>{{ excelFileName }}</strong>
+      — {{ excelTreeData.length }} root records found
+    </span>
+    <p-button label="Close Preview" icon="pi pi-times" severity="warn" [outlined]="true" size="small"
+      (onClick)="closeExcelPreview()" />
+  </div>
+
+  <!-- Preview Tree Table -->
+  <p-treeTable [value]="excelTreeData" [scrollable]="true" scrollHeight="400px">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="min-width:180px">Name</th>
+        <th>Code</th>
+        <th>Customer No</th>
+        <th>Folio</th>
+        <th>Role</th>
+        <th>Status</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-rowNode let-rowData="rowData">
+      <tr>
+        <td style="min-width:180px">
+          <p-treeTableToggler [rowNode]="rowNode" />
+          <span class="ms-2">{{ rowData.displayName }}</span>
+        </td>
+        <td>{{ rowData.agentCode }}</td>
+        <td>{{ rowData.ibnkCustomerNo }}</td>
+        <td>{{ rowData.ibnkShareFolioNum }}</td>
+        <td>{{ rowData.roleName }}</td>
+        <td>
+          <span class="badge" [class.badge-success]="rowData.is_active" [class.badge-danger]="!rowData.is_active">
+            {{ rowData.is_active ? 'Active' : 'Inactive' }}
+          </span>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="6" class="text-center py-4 text-muted">
+          <i class="pi pi-inbox me-2"></i>No data found
+        </td>
+      </tr>
+    </ng-template>
+
+  </p-treeTable>
+
+</p-dialog>
+<div class="network-container">
+
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <div class="d-flex flex-md-row flex-column justify-content-between  mb-3">
+    <div>
+      <h2 class="mb-1">Agents</h2>
+      <p class="text-muted mb-0">Manage your MLM Agent tree structure</p>
+    </div>
+    <p-button label="Add New Member" class="mt-1 " icon="pi pi-plus" (onClick)="openAddDialogWithoutParent()" />
+  </div>
+
+  <!-- ── Search bar ──────────────────────────────────────────────────── -->
+  <div class="row mb-3">
+    <div class="col-md-5">
+      <p-iconField iconPosition="left">
+        <p-inputIcon styleClass="pi pi-search" />
+        <input pInputText [(ngModel)]="globalSearchValue" (input)="onSearchInput()"
+          placeholder="Search Agent Code or Customer No" class="w-100" />
+      </p-iconField>
+    </div>
+  </div>
+
+  <!-- ── Tree table ──────────────────────────────────────────────────── -->
+  <div class="card p-2 shadow-sm bg-light">
+    <div class="table-wrapper">
+      <p-treeTable [value]="filteredTreeData" [lazy]="true" [loading]="loading" (onNodeExpand)="loadChildren($event)"
+        selectionMode="single" [(selection)]="selectedNode" (onNodeSelect)="onNodeSelect($event)">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th class="  no_wrap_cell col-name">Name</th>
+            <th>Code</th>
+            <th>Customer No</th>
+            <!-- <th class="col-folio" >Folio</th> -->
+            <!-- <th class="col-branch" >Branch</th> -->
+            <th>Role</th>
+            <!-- <th>Branch</th> -->
+            <th>Designation</th>
+            <th class="col-status">Status</th>
+
+            <th class="col-action">Action</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-rowNode let-rowData="rowData">
+          <tr [ngClass]="'level-' + rowNode.level">
+
+            <!-- Name + toggler -->
+            <td class="col-name no-wrap no_wrap_cell" data-label="Name">
+              @if (!rowNode.node.leaf) {
+              <p-treeTableToggler [rowNode]="rowNode" />
+              }
+              @if (rowNode.node.loading) {
+              <i class="pi pi-spin pi-spinner text-primary ms-1"></i>
+              }
+              <span class="ms-2">{{ rowData.displayName }} </span>
+              <!-- {{rowData.agentID}}   -->
+            </td>
+
+            <td data-label="Code">{{ rowData.agentCode }}</td>
+            <td data-label="Customer No">{{ rowData.ibnkCustomerNo }}</td>
+            <!-- <td class="col-folio" data-label="Folio">{{ rowData.ibnkShareFolioNum }}</td> -->
+            <!-- <td class="col-branch" data-label="Branch">{{ rowData| json }}</td> -->
+            <td data-label="Role">{{ rowData.roleName }}</td>
+            <!-- <td class="col-hide-tablet" data-label="Branch">
+               {{ rowData.branchName ?? '—' }}
+            </td> -->
+            <!-- Status badge -->
+            <!-- <td class="col-hide-tablet" data-label="Designation">
+  {{ getDesignationName(rowData.designationID) }} 
+</td> -->
+            <td class="col-hide-tablet" data-label="Designation">
+              {{ rowData.designationCode }}
+              <!-- {{ rowData.grade }} -->
+              <!-- ({{ rowNode.node.data.employeeDesignationCode  }} - G{{ rowData.designationCode }})
+      ({{ rowNode.node.data.employeeDesignationCode  }} - G{{ rowData.grade }}) -->
+            </td>
+            <td data-label="Status">
+              <span [ngClass]="rowData.isActive  ? 'text-success' : 'text-danger'" class="small ">
+                {{ rowData.isActive ? 'Active' : 'Inactive' }}
+              </span>
+              <!-- @if (statusLoadingMap[rowData.agentID]) {
+    <i class="pi pi-spin pi-spinner" style="font-size:1rem"></i>
+  } @else {
+    <p-button
+      [label]="rowData.isActive ? 'Active' : 'Inactive'"
+      [icon]="rowData.isActive ? 'pi pi-check-circle' : 'pi pi-ban'"
+      [severity]="rowData.isActive ? 'success' : 'danger'"
+      [pTooltip]="rowData.isActive ? 'Click to Deactivate' : 'Click to Activate'"
+      tooltipPosition="top"
+      size="small"
+      [text]="true"
+      [raised]="true"
+      (click)="toggleStatus(rowData)" />
+  } -->
+
+            </td>
+            <!-- <td>
+              {{ rowData | json   }} 
+          </td> -->
+
+
+            <!-- Add child action -->
+            <td data-label="Action" class="d-flex gap-1">
+
+
+              @if (rowData.designationCode !== 'FO') {
+              <p-button icon="pi pi-plus" [text]="true" severity="info" size="small"
+                (click)="openAddDialog(rowNode.node)" />
+              }
+
+              <span>
+                <!-- @if (pdfLoadingMap[rowData.agentID]) {
+
+        <i class="pi pi-spin pi-spinner text-danger" style="font-size: 1.1rem"></i>
+      } @else { -->
+                <p-button icon="pi pi-file-pdf" [text]="true" severity="danger" size="small"
+                  pTooltip="Download Agent Report" tooltipPosition="left" (click)="downloadPdf(rowData)" />
+                <!-- } -->
+              </span>
+              <!-- (click)="openChangeParentDialog(rowData)" -->
+              <span>
+                <!-- EXCEL UPLOAD BUTTon  -->
+                <!-- @if (isAdmin) {
+      <p-button
+        label="Import Excel"
+        icon="pi pi-file-excel"
+        severity="success"
+        [outlined]="true"
+        (onClick)="openExcelUpload()" />
+    } -->
+                <!-- 3 dot button -->
+                @if (isAdmin && rowData.agentID !== null ) {
+                <button pButton icon="pi pi-ellipsis-v" class="p-button-text p-button-sm"
+                  (click)="menudrop.toggle($event)" title="menu">
+                </button>
+                }
+                <!-- Static dropdown -->
+                <p-popover #menudrop [appendTo]="'body'">
+                  <div class="d-flex flex-column">
+                    <!-- <p-button
+        icon="pi pi-pencil"
+        [text]="true"
+        severity="secondary"
+        size="small"
+        pTooltip="Update Designation"
+        tooltipPosition="top"
+        (click)="openUpdateDesigDialog(rowData)" /> -->
+
+
+                    <button class="menu_item_drop" (click)="openAgentDialog(rowData)">
+                      <i class="pi pi-eye me-2 "></i>
+                      View Details
+                    </button>
+
+                    <button class="menu_item_drop" (click)="openUpdateDesigDialog(rowData)">
+                      <i class="pi pi-pencil me-2"></i>
+                        Edit Details
+                    </button>
+                     <button class="menu_item_drop"  (click)="openUpdateBranchDialog(rowData, rowNode.node)"  >
+                      <i class="pi pi-map-marker"></i>
+                      Change Branch
+                    </button>
+
+                    <button class="menu_item_drop" (click)="openChangeParentDialog(rowData, rowNode)">
+                      <i class="pi pi-users"></i>
+                      Change Parent
+                    </button>
+
+                     
+
+                    @if (statusLoadingMap[rowData.agentID]) {
+                    <i class="pi pi-spin pi-spinner" style="font-size:1rem"></i>
+                    } @else {
+                    <button class="menu_item_drop" (click)="toggleStatus(rowData)">
+                      <i class="pi pi pi-ban me-2"></i>
+                      Deactivate Member
+                    </button>
+                    <!-- <p-button
+      class="menu_item_drop"
+      [label]="rowData.isActive  ? 'Inactive' : 'Active'"
+      [icon]="rowData.isActive  ? 'pi pi-ban' : 'pi-check-circle'"
+      [severity]="rowData.isActive  ? 'danger' : 'success'"
+      [pTooltip]="rowData.isActive  ? 'Click to Deactivate' : 'Click to Activate'"
+      tooltipPosition="top"
+      size="small"
+      [text]="true"
+      [raised]="true"
+      (click)="toggleStatus(rowData)" /> -->
+                    }
+                   
+
+                  </div>
+
+                  <!-- <ng-template pTemplate="item">
+    <ul class="p-menu-list m-0 p-0">
+    
+      <li class="p-menuitem" (click)="activeAgent()">
+        <a class="p-menuitem-link">
+          <span class="pi pi-check me-2"></span>
+          <span class="p-menuitem-text">Active Agent</span>
+        </a>
+      </li>
+    </ul>
+  </ng-template> -->
+                </p-popover>
+              </span>
+
+            </td>
+
+          </tr>
+        </ng-template>
+      </p-treeTable>
+    </div>
+  </div><!-- /card -->
+
+</div><!-- /network-container -->
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     Add Agent Dialog
+═════════════════════════════════════════════════════════════════════ -->
+<p-dialog header="Add Agent" [(visible)]="dialogVisible" [modal]="true" [closable]="true" (onHide)="closeDialog()"
+  styleClass="responsive-dialog">
+
+  <form [formGroup]="form" autocomplete="off">
+
+    <!-- Parent label -->
+    @if (selectedParent?.data?.displayName) {
+    <div class="sub-head mb-3">
+      <i class="pi pi-sitemap me-1 text-primary"></i>
+      Parent Agent: <strong>{{ selectedParent!.data.displayName }}</strong>
+    </div>
+    }
+
+    <!-- ── Search type radios ──────────────────────────────────────── -->
+    <div class="d-flex gap-4 mb-3 d-none ">
+      <div class="d-flex align-items-center gap-2">
+        <p-radioButton inputId="rCustomer" name="searchType" value="customer" formControlName="searchType"
+          size="small" />
+        <label for="rCustomer">Find by Customer No</label>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <p-radioButton inputId="rFolio" name="searchType" value="folio" formControlName="searchType" size="small" />
+        <label for="rFolio">Find by Share Folio</label>
+      </div>
+    </div>
+
+    <!-- ── Folio fields ───────────────────────────────────────────── -->
+    @if (form.value.searchType === 'folio') {
+    <div class="row">
+      <div class="col-md-6">
+        <div class="field mb-2">
+          <label class="form-label">Share Class</label>
+          <input pInputText class="w-100" placeholder="Share Class" formControlName="shareClassCode" />
+          @if (form.get('shareClassCode')?.touched && !form.value.shareClassCode) {
+          <small class="text-danger">Share Class is required</small>
+          }
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Folio Number</label>
+          <input pInputText class="w-100" placeholder="Folio Number" formControlName="folioNo" pattern="[0-9]*" />
+          @if (form.get('folioNo')?.touched && !form.value.folioNo) {
+          <small class="text-danger">Folio Number is required</small>
+          }
+        </div>
+      </div>
+    </div>
+    }
+
+    <!-- ── Customer field ─────────────────────────────────────────── -->
+    @if (form.value.searchType === 'customer') {
+    <div class="row">
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Enter Customer No</label>
+          <input pInputText class="w-100" placeholder="Customer No" formControlName="customerNo" />
+          @if (form.get('customerNo')?.touched && !form.value.customerNo) {
+          <small class="text-danger">Customer No is required</small>
+          }
+        </div>
+      </div>
+      <div class="col-md-6">
+        <!-- Find Member button -->
+        <!-- text-end -->
+        <div class=" mb-3">
+          <label class="form-label d-block ">&nbsp; </label>
+
+          <p-button label="Find Member" icon="pi pi-search" severity="success" variant="outlined" type="button"
+            [loading]="uiloading" (click)="searchMember()" />
+        </div>
+      </div>
+    </div>
+
+    }
+
+
+
+    <!-- ── Member result card ─────────────────────────────────────── -->
+    @if (members.length > 0) {
+    <div class="member-card shadow-sm rounded mb-3 p-3">
+      <div class="row">
+        <div class="col-md-6 col-lg-4">
+
+          <div class="member-field d-flex flex-row align-items-center mb-2">
+            <span> <p-avatar icon="pi pi-user" /> &nbsp; </span>
+            <div class="d-flex flex-column gap-0">
+              <span class="small line_h_5">Selected Member </span>
+              <span class="small fw_500">{{ members[0].displayName }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+          <div class="member-field d-flex flex-row align-items-center mb-2">
+            <span><p-avatar icon="pi pi-id-card" /> &nbsp; </span>
+            <div class="d-flex flex-column gap-0">
+              <span class=" small line_h_5">Customer No</span>
+              <span class="small fw_500">{{ members[0].ibnkCustomerNo }}</span>
+            </div>
+          </div>
+        </div>
+        <!-- <div class="col-md-6 col-lg-4">
+            <div class="member-field d-flex flex-row align-items-center mb-2">
+              <span><p-avatar icon="pi pi-share-alt" /> &nbsp; </span>
+              <div class="d-flex flex-column gap-0" >
+                <span class="small line_h_5">Share Class</span>
+                <span class="small fw_500">{{ members[0].ibnkShareClassCode }}</span>
+              </div>
+            </div>
+          </div> -->
+        <!-- <div class="col-md-6 col-lg-4">
+            <div class="member-field d-flex flex-row align-items-center mb-2 ">
+               <span><p-avatar icon="pi pi-hashtag" /> &nbsp; </span>
+              <div class="d-flex flex-column gap-0">
+                <span class="small line_h_5">Introduced by</span>
+                <span class="small fw_500">{{ selectedParent!.data.displayName }}</span>
+              </div>
+            </div>
+          </div> -->
+
+
+        <!-- <div class="col-md-6 col-lg-4">
+            <div class="member-field d-flex flex-row align-items-center mb-2 ">
+               <span><p-avatar icon="pi pi-hashtag" /> &nbsp; </span>
+              <div class="d-flex flex-column gap-0">
+                <span class="small line_h_5">Folio No</span>
+                <span class="small fw_500">{{ members[0].ibnkShareFolioNum }}</span>
+              </div>
+            </div>
+          </div> -->
+      </div>
+    </div>
+    }
+
+    <!-- ── No data message ────────────────────────────────────────── -->
+    @if (noDataMessage) {
+    <div class="alert-box mb-3">
+      <i class="pi pi-exclamation-triangle me-2"></i>{{ noDataMessage }}
+    </div>
+    }
+
+    <!-- ── Role + Branch selects ──────────────────────────────────── -->
+    @if (isVisibleRoleBranchDiv) {
+    <div class="row">
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Introduced By</label>
+
+          @if (selectedParent !== null) {
+          <!-- Has parent — show readonly -->
+          <input pInputText class="w-100" [value]="selectedParent?.data?.displayName" readonly />
+          } @else {
+          <!-- No parent — show searchable dropdown -->
+          <p-select class="w-100" [options]="agentListForParent" optionLabel="displayName" optionValue="agentID"
+            formControlName="introducedByID" placeholder="Select Introduced By " [filter]="true"
+            filterBy="displayName,agentCode" [showClear]="true" appendTo="body">
+            <ng-template let-agent pTemplate="item">
+              <div class="d-flex flex-column">
+                <span class="fw-semibold">{{ agent.displayName }}</span>
+                <small class="text-muted">{{ agent.agentCode }} | {{ agent.roleName }}</small>
+              </div>
+            </ng-template>
+          </p-select>
+          <!-- @if (form.get('introducedByID')?.touched && !form.value.introducedByID) {
+      <small class="text-danger">             
+        <i class="pi pi-exclamation-circle me-1"></i>
+        Introduced By is required
+      </small>
+    } -->
+          <!-- <small class="text-muted">
+        Optional — leave empty to create as root agent
+      </small> -->
+          }
+
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Select Role</label>
+          <p-select class="w-100" [options]="roles" optionLabel="roleName" optionValue="roleID" formControlName="roleID"
+            placeholder="Select Role" dropdownPosition="above" appendTo="body" />
+          @if (form.get('roleID')?.touched && !form.value.roleID) {
+          <small class="text-danger">
+            <i class="pi pi-exclamation-circle me-1"></i>
+            Role is required
+          </small>
+          }
+        </div>
+      </div>
+      @if (form.get('roleID')?.value === 1) {
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Staff Code</label>
+
+          <input pInputText type="text" class="form-control" formControlName="employeeCode"
+            placeholder="Enter Staff Code" />
+
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label"> Staff Designation</label>
+          <p-select class="w-100" [options]="staffDesignations" optionLabel="name" optionValue="id"
+            formControlName="employeeDesignationID" [filter]="true" filterBy="name"
+            placeholder="Select Staff Designation" dropdownPosition="above" appendTo="body" />
+
+        </div>
+      </div>
+
+      }
+
+      <!-- Designation -->
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Select Designation</label>
+          <p-select class="w-100" [options]="designations" optionLabel="name" optionValue="id"
+            formControlName="designationID" [filter]="true" filterBy="name" placeholder="Select Designation"
+            appendTo="body" />
+          @if (form.get('designationID')?.touched && !form.value.designationID) {
+          <small class="text-danger">Designation is required</small>
+          }
+        </div>
+      </div>
+      <!-- <div class="col-md-6">
+    <div class="field mb-3">
+      <label class="form-label">Select Agent</label>
+      <p-select
+        class="w-100"
+        [options]="agents"
+        optionLabel="name"
+        optionValue="value"
+        formControlName="agent"  
+        placeholder="Select Agent" dropdownPosition="above">
+      </p-select>
+    </div>
+  </div> -->
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Select Branch</label>
+          <p-multiSelect class="w-100" [options]="branches" optionLabel="branchName" formControlName="branches"
+            placeholder="Select Branch" appendTo="body" />
+          @if (form.get('branches')?.touched && !form.value.branches?.length) {
+          <small class="text-danger"> <!-- ✅ inline error -->
+            <i class="pi pi-exclamation-circle me-1"></i>
+            At least one Branch is required
+          </small>
+          }
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="field mb-3">
+          <label class="form-label">Joining Date</label>
+          <p-datepicker formControlName="joiningDate" dateFormat="dd/mm/yy" showIcon="true" class="w-100">
+          </p-datepicker>
+        </div>
+      </div>
+
+
+      <!-- Action buttons -->
+      <div class="col-md-12">
+        <div class="d-flex justify-content-end gap-2">
+          <p-button label="Cancel" icon="pi pi-times-circle" [raised]="true" severity="warn" type="button"
+            (click)="closeDialog()" />
+          <p-button label="Save" icon="pi pi-save" [raised]="true" severity="success" type="button"
+            (click)="saveAgent()" [loading]="loading" />
+        </div>
+      </div>
+    </div>
+    }
+
+  </form>
+</p-dialog>
+
+
+<!-- popup change Parent  -->
+<p-dialog header="Change Parent Agent" [(visible)]="changeParentVisible" [modal]="true" [closable]="true"
+  (onHide)="closeChangeParentDialog()" styleClass="responsive-dialog" [style]="{ width: '500px' }">
+
+  <!-- Loading agent details -->
+  @if (changeParentLoading) {
+  <div class="text-center py-4">
+    <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: #2563eb"></i>
+    <p class="text-muted mt-2">Loading agent details...</p>
+  </div>
+  }
+
+  <!-- Agent details card -->
+  @if (!changeParentLoading && selectedAgentDetail) {
+  <div class="member-card rounded p-3 mb-3">
+    <div class="row">
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-user" />
+          <div>
+            <span class="label">Agent Name</span>
+            <span class="value">{{ selectedAgentDetail.displayName }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-tag" />
+          <div>
+            <span class="label">Agent Code</span>
+            <span class="value">{{ selectedAgentDetail.agentCode }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-id-card" />
+          <div>
+            <span class="label">Customer No</span>
+            <span class="value">{{ selectedAgentDetail.ibnkCustomerNo }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-briefcase" />
+          <div>
+            <span class="label">Role</span>
+            <span class="value">{{ selectedAgentDetail.roleName }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-share-alt" />
+          <div>
+            <span class="label">Share Class</span>
+            <span class="value">{{ selectedAgentDetail.ibnkShareClassCode }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-hashtag" />
+          <div>
+            <span class="label">Folio No</span>
+            <span class="value">{{ selectedAgentDetail.ibnkShareFolioNum }}</span>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ✅ NEW fields -->
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-star" />
+          <div>
+            <span class="label">Designation</span>
+            <span class="value">{{selectedAgentDetail.designationName }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-id-card" />
+          <div>
+            <span class="label">Staff Code</span>
+            <span class="value">
+              {{ selectedAgentDetail.employeeCode || '—' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-briefcase" />
+          <div>
+            <span class="label">Staff Designation</span>
+            <span class="value"> {{ selectedAgentDetail.employeeDesignationName || '—' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-building" />
+          <div>
+            <span class="label">Branch</span>
+            <span class="value">  <span class="value">{{ getBranchNamesPopup() }}</span> </span>
+            <!-- {{ selectedAgentDetail.branches?.map(b => b.branchName).join(', ') }}  -->
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-building" />
+          <div>
+            <span class="label">Joining Date</span>
+            {{ selectedAgentDetail.joiningDate ? (selectedAgentDetail.joiningDate | date:'dd-MM-yyyy') : '—' }}
+          </div>
+        </div>
+      </div>
+
+
+
+
+
+
+
+    </div>
+  </div>
+
+  <!-- Parent selector -->
+  <div class="field mb-3">
+    <label class="form-label fw-semibold">
+      <i class="pi pi-sitemap me-1 text-primary"></i>
+      Select New Parent Agent
+    </label>
+    <p-select class="w-100" [options]="agentListForParent" optionLabel="displayName" optionValue="agentID"
+      [(ngModel)]="selectedNewParentID" placeholder="Search and select parent agent..." [filter]="true"
+      filterBy="displayName,agentCode" dropdownPosition="above" appendTo="body" [showClear]="true">
+      <!-- Custom option template -->
+      <ng-template let-agent pTemplate="item">
+        <div class="d-flex flex-column">
+          <span class="fw-semibold">{{ agent.displayName }}</span>
+          <small class="text-muted">{{ agent.agentCode }} | {{ agent.roleName }}</small>
+        </div>
+      </ng-template>
+    </p-select>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="d-flex justify-content-end gap-2">
+
+    <p-button label="Cancel" icon="pi pi-times-circle" [raised]="true" severity="warn" type="button"
+      (click)="closeChangeParentDialog()" />
+    <p-button [label]="updateParentFailed ? 'Retry' : 'Update Parent'"
+      [icon]="updateParentFailed ? 'pi pi-refresh' : 'pi pi-save'" [raised]="true"
+      [severity]="updateParentFailed ? 'danger' : 'success'" [loading]="updateParentLoading" (click)="updateParent()" />
+  </div>
+
+  }
+
+</p-dialog>
+
+<!-- update ChangeDesigantion -->
+<p-dialog header="Update Agent Designation" [(visible)]="updateDesigVisible" [modal]="true" [closable]="true"
+  (onHide)="closeUpdateDesigDialog()" [style]="{ width: '500px' }" styleClass="responsive-dialog">
+
+  <!-- Loading spinner -->
+  @if (updateDesigLoading && !selectedAgentForUpdate?.agentCode) {
+  <div class="text-center py-4">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem; color:#2563eb"></i>
+    <p class="text-muted mt-2">Loading agent details...</p>
+  </div>
+  }
+
+  @if (selectedAgentForUpdate && !updateDesigLoading || updateDesigForm.dirty) {
+
+  <!-- Agent info banner -->
+  <!-- <div class="sub-head mb-3">
+      <i class="pi pi-user me-1 text-primary"></i>
+      <strong>{{ selectedAgentForUpdate?.displayName }}</strong>
+      <span class="text-muted ms-2">{{ selectedAgentForUpdate?.agentCode }}</span>
+    </div> -->
+  <!-- Agent Details Card -->
+  <div class="member-card rounded p-3 mb-3">
+    <div class="row">
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-user" />
+          <div>
+            <span class="label">Agent Name</span>
+            <span class="value">{{ selectedAgentForUpdate.displayName }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-tag" />
+          <div>
+            <span class="label">Agent Code</span>
+            <span class="value">{{ selectedAgentForUpdate.agentCode }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-id-card" />
+          <div>
+            <span class="label">Customer No</span>
+            <span class="value">{{ selectedAgentForUpdate.ibnkCustomerNo }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-briefcase" />
+          <div>
+            <span class="label">Role</span>
+            <span class="value">{{ selectedAgentForUpdate.roleName }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- <div class="col-6">
+          <div class="member-field">
+            <p-avatar icon="pi pi-share-alt" />
+            <div>
+              <span class="label">Share Class</span>
+              <span class="value">{{ selectedAgentForUpdate.ibnkShareClassCode }}</span>
+            </div>
+          </div>
+        </div> -->
+
+      <!-- <div class="col-6">
+          <div class="member-field">
+            <p-avatar icon="pi pi-hashtag" />
+            <div>
+              <span class="label">Folio No</span>
+              <span class="value">{{ selectedAgentForUpdate.ibnkShareFolioNum }}</span>
+            </div>
+          </div>
+        </div> -->
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-star" />
+          <div>
+            <span class="label">Designation</span>
+            <span class="value">
+              {{ selectedAgentForUpdate.designationName ?? '—' }}
+              @if (selectedAgentForUpdate.designationCode) {
+              <small class="text-muted">({{ selectedAgentForUpdate.designationCode }})</small>
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-check-circle" />
+          <div>
+            <span class="label">Status</span>
+            <span class="value fw-bold" [class.text-success]="selectedAgentForUpdate.isActive"
+              [class.text-danger]="!selectedAgentForUpdate.isActive">
+              {{ selectedAgentForUpdate.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-building" />
+          <div>
+            <span class="label">Branch</span>
+                        <span class="value">  <span class="value">{{ getBranchNamesPopup() }}</span> </span>
+
+          </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="member-field">
+          <p-avatar icon="pi pi-building" />
+          <div>
+            <span class="label">Joining Date</span>
+            {{ selectedAgentForUpdate.joiningDate ? (selectedAgentForUpdate.joiningDate | date:'dd-MM-yyyy') : '—' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form [formGroup]="updateDesigForm" autocomplete="off">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col-md-6">
+             
+      <div class="field mb-3">
+        <label class="form-label">
+          Role 
+        </label>
+        <p-select
+          class="w-100"
+          [options]="roles"
+          optionLabel="roleName"
+          optionValue="roleID"
+          formControlName="roleID"
+          placeholder="Select Role" 
+          appendTo="body" />
+        @if (updateDesigForm.get('roleID')?.touched && !updateDesigForm.value.roleID) {
+          <small class="text-danger">Role is required</small>
+        }
+      </div>
+                 
+             </div>
+        <div class="col-md-6">
+          <!-- Designation -->
+          <div class="field mb-3">
+            <label class="form-label">
+              Designation <span class="text-danger">*</span>
+            </label>
+            <p-select class="w-100" [options]="designations" optionLabel="name" optionValue="id"
+              formControlName="designationID" [filter]="true" filterBy="name" placeholder="Select Designation"
+              appendTo="body" />
+            @if (updateDesigForm.get('designationID')?.touched && !updateDesigForm.value.designationID) {
+            <small class="text-danger">Designation is required</small>
+            }
+          </div>
+
+        </div>
+        <!-- </div>
+             <div class="row"> -->
+        @if (isStaffRoleInUpdateForm) {
+        <div class="col-md-6">
+          <!-- Staff Designation -->
+          <div class="field mb-3">
+            <label class="form-label">
+              Staff Designation
+              <!-- <small class="text-muted">(optional)</small> -->
+            </label>
+            <p-select class="w-100" [options]="staffDesignations" optionLabel="name" optionValue="id"
+              formControlName="employeeDesignationID" [filter]="true" filterBy="name"
+              placeholder="Select Staff Designation" [showClear]="true" appendTo="body" />
+          </div>
+
+        </div>
+        <!-- <div class="col-md-6">
+             
+      <div class="field mb-3">
+        <label class="form-label">
+          Employee Code
+          <small class="text-muted">(optional)</small>
+        </label>
+        <input
+          pInputText
+          class="w-100"
+          readonly
+          formControlName="employeeCode" />
+      </div>
+                 
+             </div> -->
+        }
+        <div class="col-md-6">
+              
+      <div class="field mb-4">
+        <label class="form-label">
+          Joining Date
+          <!-- <small class="text-muted">(optional)</small> -->
+        </label>
+        <p-datepicker
+          class="w-100"
+          formControlName="joiningDate"
+          placeholder="Select Joining Date"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          appendTo="body" />
+      </div>
+                 
+             </div>
+      </div>
+      <!-- <div class="row"> -->
+             
+         <!-- </div> -->
+    </div>
+
+
+
+    <!-- Action buttons -->
+    <div class="d-flex justify-content-end gap-2">
+      <p-button label="Cancel" icon="pi pi-times-circle" severity="warn" [raised]="true" type="button"
+        (click)="closeUpdateDesigDialog()" />
+      <p-button label="Update" icon="pi pi-save" severity="success" [raised]="true" type="button"
+        [loading]="updateDesigLoading" (click)="saveUpdateDesig()" />
+    </div>
+
+  </form>
+  }
+
+</p-dialog>
+
+<!-- view details member  -->
+
+<p-dialog header="Agent Details" [(visible)]="agentDialogVisible" [modal]="true" [style]="{ width: '70%' }"
+  [closable]="true">
+
+  <!-- Loading -->
+  <div *ngIf="agentLoading" class="text-center p-3">
+    <i class="pi pi-spin pi-spinner"></i> Loading...
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="!agentLoading && selectedAgentDetail">
+
+    <div class="member-card rounded p-3 mb-3">
+      <div class="row">
+
+        <!-- Agent Name -->
+        <div class="col-md-6 mt-1 ">
+          <div class="member-field">
+            <p-avatar icon="pi pi-user" />
+            <div>
+              <span class="label">Agent Name</span>
+              <span class="value">{{ selectedAgentDetail.displayName }}</span>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- Employee Code -->
+        <div class="col-md-6 mt-1 ">
+          <div class="member-field">
+            <p-avatar icon="pi pi-tag" />
+
+            <div>
+              <span class="label">Agent Code</span>
+              <span class="value">{{ selectedAgentDetail.agentCode }}</span>
+
+            </div>
+
+          </div>
+        </div>
+         <!-- <div class="col-md-6 mt-1 ">
+          <div class="member-field">
+            <p-avatar icon="pi pi-tag" />
+
+            <div>
+              <span class="label">Agent Number</span>
+              <span class="value">{{ selectedAgentDetail.agentNumber }}</span>
+
+            </div>
+
+          </div>
+        </div> -->
+        <div class="col-md-6 mt-1">
+          <div class="member-field">
+            <p-avatar icon="pi pi-id-card" />
+            <div>
+              <span class="label">Customer No</span>
+              <span class="value">{{ selectedAgentDetail.ibnkCustomerNo }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 mt-1">
+
+          <div class="member-field">
+            <p-avatar icon="pi pi-briefcase" />
+            <div>
+              <span class="label">Role</span>
+              <span class="value">{{ selectedAgentDetail.roleName }}</span>
+            </div>
+          </div>
+        </div>
+        <!-- Designation -->
+
+        <div class="col-md-6 mt-1">
+
+          <div class="member-field">
+            <p-avatar icon="pi pi-briefcase" />
+            <div>
+              <span class="label">Designation</span>
+              <span class="value">{{ selectedAgentDetail.designationName }} ({{ selectedAgentDetail.designationCode || '—' }})</span>
+            </div>
+
+          </div>
+        </div>
+        <div class="col-md-6 mt-1">
+
+          <div class="member-field">
+            <p-avatar icon="pi pi-briefcase" />
+            <div>
+              <span class="label">Designation Grade</span>
+              <span class="value">{{ selectedAgentDetail.designationGrade || '—' }}</span>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Employee Designation -->
+          <div class="col-md-6 mt-1">
+
+          <div class="member-field">
+            <p-avatar icon="pi pi-briefcase" />
+            <div>
+              <span class="label">Staff Designation</span>
+              <span class="value">{{ selectedAgentDetail.employeeDesignationName }} ({{ selectedAgentDetail.employeeDesignationCode || '—' }})</span>
+            </div>
+
+          </div>
+        </div>
+        <div class="col-md-6 mt-1">
+
+          <div class="member-field">
+            <p-avatar icon="pi pi-briefcase" />
+            <div>
+              <span class="label">Staff Designation Grade</span>
+              <span class="value">{{ selectedAgentDetail.employeeDesignationGrade || '—' }}</span>
+
+            </div>
+
+          </div>
+        </div>
+        
+       <div class="col-md-6 mt-1 ">
+          <div class="member-field">
+            <p-avatar icon="pi pi-tag" />
+
+            <div>
+              <span class="label">Staff Code</span>
+              <span class="value">{{ selectedAgentDetail.employeeCode || '—' }}</span>
+
+            </div>
+
+          </div>
+        </div>
+
+        <div class="col-md-6 mt-1 ">
+          <div class="member-field">
+            <p-avatar icon="pi pi-check-circle" />
+            <div>
+              <span class="label">Status</span>
+              <span
+                class="value fw-bold"
+                [class.text-success]="selectedAgentDetail.isActive"
+                [class.text-danger]="!selectedAgentDetail.isActive">
+                {{ selectedAgentDetail.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+          </div>
+        </div>
+         <div class="col-md-6 mt-1 ">
+            <div class="member-field">
+              <p-avatar icon="pi pi-calendar" />
+              <div>
+                <span class="label">Joining Date</span>
+                <span class="value">
+                  {{ selectedAgentDetail.joiningDate | date:'dd MMM yyyy'  }}
+                </span>
+              </div>
+            </div>
+          </div>
+           <div class="col-md-6 mt-1 ">
+            <div class="member-field">
+              <p-avatar icon="pi pi-building" />
+              <div>
+                <span class="label">Branches</span>
+                <span class="value">
+                  {{ selectedAgentDetail.branches?.[0]?.branchName || '-' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</p-dialog>
+
+<!-- change Mapped Branches  -->
+
+<p-dialog
+  header="Update Agent Branches"
+  [(visible)]="updateBranchVisible"
+  [modal]="true"
+  [closable]="true"
+  (onHide)="closeUpdateBranchDialog()"
+  [style]="{ width: '520px' }"
+  styleClass="responsive-dialog">
+
+  <!-- Loading -->
+  @if (updateBranchLoading) {
+    <div class="text-center py-4">
+      <i class="pi pi-spin pi-spinner" style="font-size:2rem; color:#2563eb"></i>
+      <p class="text-muted mt-2">Loading agent details...</p>
+    </div>
+  }
+
+  @if (!updateBranchLoading && selectedAgentForBranch) {
+
+    <!-- ✅ Agent details card -->
+    <div class="member-card rounded p-3 mb-3">
+      <div class="row">
+
+        <div class="col-6">
+          <div class="member-field">
+            <p-avatar icon="pi pi-user" />
+            <div>
+              <span class="label">Agent Name</span>
+              <span class="value">{{ selectedAgentForBranch.displayName }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-6">
+          <div class="member-field">
+            <p-avatar icon="pi pi-tag" />
+            <div>
+              <span class="label">Agent Code</span>
+              <span class="value">{{ selectedAgentForBranch.agentCode }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-6">
+          <div class="member-field">
+            <p-avatar icon="pi pi-briefcase" />
+            <div>
+              <span class="label">Role</span>
+              <span class="value">{{ selectedAgentForBranch.roleName }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-6">
+          <div class="member-field">
+            <p-avatar icon="pi pi-star" />
+            <div>
+              <span class="label">Designation</span>
+              <span class="value">
+                {{ selectedAgentForBranch.designationName ?? '—' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Current branches -->
+        <div class="col-12">
+          <div class="member-field">
+            <p-avatar icon="pi pi-building" />
+            <div>
+              <span class="label">Current Branches</span>
+              
+             <span class="value">
+  @if (selectedAgentForBranch.branches?.length) {
+    {{ selectedAgentForBranch.branches.map(b => b.branchName).join(', ') }}
+  } @else {
+    <span class="text-muted">—</span>
+  }
+</span>
+            <!-- <span class="value">  <span class="value">{{ getBranchNamesPopup() }}</span> </span> -->
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="mb-3" style="border-top: 2px dashed #e2e8f0;"></div>
+
+    <!-- ✅ Branch selection -->
+    <div class="field mb-3">
+      <label class="form-label fw-semibold">
+        <i class="pi pi-building me-1 text-primary"></i>
+        Select Branches <span class="text-danger">*</span>
+      </label>
+
+      @if (!availableBranches.length) {
+        <div class="alert-box">
+          <i class="pi pi-exclamation-triangle me-2"></i>
+          No branches available — parent agent has no assigned branches
+        </div>
+      } @else {
+        <p-multiSelect
+          class="w-100"
+          [options]="availableBranches"
+          optionLabel="branchName"
+          optionValue="branchID"
+          [(ngModel)]="selectedBranchIDs"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Select branches"
+          [filter]="true"
+          filterBy="branchName"
+          [showClear]="true"
+          appendTo="body"
+          display="chip" />
+
+        <small class="text-muted mt-1 d-block">
+          <i class="pi pi-info-circle me-1"></i>
+          @if (availableBranches.length < branches.length) {
+            Only branches from parent agent are available
+          } @else {
+            All branches are available
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Action buttons -->
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <p-button
+        label="Cancel"
+        icon="pi pi-times-circle"
+        severity="warn"
+        [raised]="true"
+        type="button"
+        [disabled]="updateBranchSaving"
+        (click)="closeUpdateBranchDialog()" />
+      <p-button
+        label="Update Branches"
+        icon="pi pi-save"
+        severity="success"
+        [raised]="true"
+        type="button"
+        [loading]="updateBranchSaving"
+        [disabled]="!availableBranches.length"
+        (click)="saveUpdateBranch()" />
+    </div>
+
+  }
+
+</p-dialog>

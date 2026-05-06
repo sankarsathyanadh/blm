@@ -1,0 +1,8 @@
+{
+  "/api": {
+    "target": "https://imkttest.icrats.in",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  }
+}

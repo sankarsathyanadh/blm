@@ -1,0 +1,71 @@
+
+@import "primeicons/primeicons.css";
+.p-organizationchart .p-organizationchart-node-content {
+    padding: 0;
+    border: none;
+}
+
+.user-node {
+    border: 1px solid #dee2e6;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 1
+    0.5rem;
+    min-width: 150px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+}
+
+.user-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.node-header {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.2rem;
+}
+
+.node-details {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+
+
+
+
+
+
+
+
+:host ::ng-deep .p-dialog {
+  z-index: 11000 !important;
+  background-color: #fff;
+}
+
+:host ::ng-deep .p-dialog-mask {
+  z-index: 10999 !important;
+}
+
+:host ::ng-deep .p-dialog .p-dialog-header {
+  padding: 1rem 1.25rem;
+  background-color: #fff;
+}
+
+:host ::ng-deep .p-dialog .p-dialog-content {
+  padding: 1rem 1.25rem;
+}
+
+:host ::ng-deep   .p-organizationchart-node {
+  padding: 0 !important;
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,122 @@
+
+      <p-dialog 
+        header="Member Details" 
+        [(visible)]="displayDetails" 
+        [modal]="true" 
+        appendTo="body"
+        [style]="{ width: '350px' }" 
+        [baseZIndex]="10000"
+        [draggable]="false" 
+        [resizable]="false"
+        styleClass="member-dialog"
+        position="right">
+        @if (selectedUser()) {
+          <div class="p-3">
+            <div class="text-center mb-4">
+              <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                <i class="pi pi-user text-primary" style="font-size: 2.5rem;"></i>
+              </div>
+              <h4>{{ selectedUser()?.name }}</h4>
+              <span class="badge bg-primary">{{ selectedUser()?.role }}</span>
+            </div>
+            
+            <div class="list-group list-group-flush">
+              <div class="list-group-item px-0 d-flex justify-content-between">
+                <span class="text-muted">Member #</span>
+                <span class="fw-bold">{{ selectedUser()?.memberNumber }}</span>
+              </div>
+              <div class="list-group-item px-0 d-flex justify-content-between">
+                <span class="text-muted">Agent Code</span>
+                <span class="fw-bold">{{ selectedUser()?.agentCode }}</span>
+              </div>
+              <div class="list-group-item px-0 d-flex justify-content-between">
+                <span class="text-muted">Joined Date</span>
+                <span class="fw-bold">{{ selectedUser()?.joinDate }}</span>
+              </div>
+              <div class="list-group-item px-0 d-flex justify-content-between">
+                <span class="text-muted">Status</span>
+                <span class="badge" [ngClass]="selectedUser()?.status === 'Active' ? 'bg-success' : 'bg-danger'">
+                  {{ selectedUser()?.status }}
+                </span>
+              </div>
+            </div>
+          </div>
+        }
+      </p-dialog>
+
+      <!-- Add User Dialog -->
+      <p-dialog 
+        header="Add New Member" 
+        [(visible)]="displayAdd" 
+        [modal]="true" 
+        appendTo="body"
+        [baseZIndex]="10000"
+        [style]="{ width: '350px' }" 
+        [draggable]="false" 
+        [resizable]="false">
+        <form [formGroup]="userForm" (ngSubmit)="onSaveUser()" class="p-fluid mt-2">
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+             </div>
+       
+            <div class="d-flex flex-column gap-1 field mb-3">
+                 <label for="name" class="form-label">User Name</label>
+                 <input id="name" type="text" pInputText formControlName="name" placeholder="Full Name" />
+
+            </div>
+           
+       
+          <div class="d-flex flex-column gap-1  field mb-3">
+            <label for="memberNumber" class="form-label">Member Number</label>
+            <input id="memberNumber" type="text" pInputText formControlName="memberNumber" placeholder="e.g. M007" />
+          </div>
+          <div class="d-flex flex-column gap-1  field mb-4">
+            <label for="agentCode" class="form-label">Agent Code</label>
+            <input id="agentCode" type="text" pInputText formControlName="agentCode" placeholder="e.g. A106" />
+          </div>
+          
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="displayAdd = false"></p-button>
+            <p-button label="Save Member" type="submit" [disabled]="userForm.invalid"></p-button>
+          </div>
+        </form>
+      </p-dialog>
+  <div class="network-container">
+     <!-- User Details Dialog -->
+  
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 class="mb-1">Network Hierarchy</h2>
+          <p class="text-muted">Visualize and manage your MLM tree structure</p>
+        </div>
+        <p-button label="Add New Member" icon="pi pi-plus" (onClick)="showAddDialog()"></p-button>
+      </div>
+
+      <div class="card p-4  shadow-sm bg-light">
+        <p-organizationChart [value]="userService.networkData()" selectionMode="single" (onNodeSelect)="onNodeSelect($event)"  styleClass="my-org-chart" >
+          <ng-template let-node pTemplate="person">
+            <div class="user-node position-relative py-2">
+              <div class="node-header text-truncate">{{ node.data.name }}</div>
+              <div class="node-details">
+                <div class="small">ID: {{ node.data.memberNumber }}</div>
+                <!-- <div class="badge mt-2" [ngClass]="node.data.status === 'Active' ? 'bg-success' : 'bg-danger'">
+                  {{ node.data.status }}
+                </div> -->
+              </div>
+              
+              @if (node.children && node.children.length > 0) {
+                <button 
+                  class="btn btn-sm btn-light border rounded-circle position-absolute  start-50 translate-middle-x mb-n3 z-1"
+                  style="width: 24px; height: 24px; padding: 0; line-height: 1;"
+                  (click)="$event.stopPropagation(); node.expanded = !node.expanded"
+                  [title]="node.expanded ? 'Collapse' : 'Expand'">
+                  <i class="pi" [ngClass]="node.expanded ? 'pi-chevron-up' : 'pi-chevron-down'" style="font-size: 0.7rem;"></i>
+                </button>
+              }
+            </div>
+          </ng-template>
+        </p-organizationChart>
+      </div>
+
+     
+    </div>

@@ -1,0 +1,175 @@
+<div class="network-container">
+<p-toast></p-toast>
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <div class="d-flex flex-md-row flex-column justify-content-between  mb-3">
+    <div>
+      <h2 class="mb-1">Designations</h2>
+      <!-- <p class="text-muted mb-0">Manage your Designation</p> -->
+    </div>
+    
+  </div>
+ <div class="row">
+     <div class="col-md-12">
+         <p-tabs value="0">
+
+  <!-- 🔹 Tab Headers -->
+  <p-tablist>
+    <p-tab value="0">Designation</p-tab>
+    <p-tab value="1" (click)="loadAgentDesignations()" >Staff Designation</p-tab>
+  </p-tablist>
+
+  <!-- 🔹 Tab Content -->
+  <p-tabpanels>
+
+    <!-- Designation Tab -->
+    <p-tabpanel value="0">
+      <div class="row">
+
+        <div class="col-12 col-md-4 mb-2">
+          <label for="DesignationName">Designation Name</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="designationName"
+            class="w-100" />
+        </div>
+         <!-- Description -->
+        <div class="col-12 col-md-4 mb-2">
+          <label for="Description" >Description</label>
+          <input type="text" pInputText [(ngModel)]="designationDescription" class="w-100"/>
+        </div>
+         <!-- Grade -->
+        <div class="col-12 col-md-4 mb-2">
+          <label for="Grade" >Grade</label>
+          <input type="text" pInputText [(ngModel)]="designationGrade" class="w-100"/>
+        </div>
+
+        <div class="col-12 col-md-12 float-end mb-2  ">
+          <!-- <label for="DesignationName" class="w-100" > &nbsp; </label> -->
+
+          <!-- <button
+            pButton
+            label="Save"  class="float-end"
+            icon="pi pi-save"
+            (click)="saveDesignation()">
+          </button> -->
+          <button
+  pButton
+  [label]="selectedDesignation ? 'Update' : 'Save'"
+  icon="pi pi-save"
+  (click)="saveDesignation()"
+  class="float-end"
+  [loading]="designationLoading">
+</button>
+        </div>
+
+      </div>
+
+      <!-- Table -->
+      <p-table [paginator]="true" [rows]="5" [rowsPerPageOptions]="[5, 10, 20]" [value]="designationList"  [loading]="designationLoading" class="mt-2 custom-padding-table" >
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Designation</th>
+             <th>Description</th>
+            <th>Grade</th>
+            <th>Action</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.name }}</td>
+             <td>{{ row.description }}</td>
+            <td>{{ row.grade }}</td>
+            <td>
+  <button
+    pButton
+    icon="pi pi-pencil"
+    class="p-button-text"
+    (click)="editDesignation(row)">
+  </button>
+</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-tabpanel>
+
+
+    <!--  Agent Designation Tab -->
+    <p-tabpanel value="1">
+      <div class="row">
+
+        <div class="col-12 col-md-4">
+          <label for="AgentDesignation" >Staff Designation Name</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="agentDesignationName"
+            class="w-100" />
+        </div>
+        <div class="col-12 col-md-4 mb-2">
+           <label for="staffDescription" >Description</label>
+          <input type="text" pInputText [(ngModel)]="agentDesignationDescription" class="w-100"/>
+
+        </div>
+        <div class="col-12 col-md-4 mb-2">
+           <label for="staffGrade" >Grade</label>
+          <input type="text" pInputText [(ngModel)]="agentDesignationGrade" class="w-100"/>
+          
+        </div>
+
+        <div class="col-12 col-md-12 ">
+          <!-- <label for="DesignationName" class="w-100" > &nbsp; </label> -->
+
+          <!-- <button
+            pButton
+            label="Save" class="float-end"
+            icon="pi pi-save" 
+            (click)="saveAgentDesignation()">
+          </button> -->
+          <button
+  pButton
+  [label]="selectedAgentDesignation ? 'Update' : 'Save'"
+  icon="pi pi-save"
+  class="float-end"
+  (click)="saveAgentDesignation()">
+</button>
+        </div>
+
+      </div>
+
+      <!-- Table -->
+      <p-table  [paginator]="true" [rows]="5" [rowsPerPageOptions]="[5, 10, 20]" [value]="agentDesignationList" [loading]="agentDesignationLoading"  class="mt-2 custom-padding-table" >
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Staff Designation</th>
+            <th>Description</th>
+             <th>Grade</th>
+             <th>Action</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.name }}</td>
+             <td>{{ row.description }}</td>
+            <td>{{ row.grade }}</td>
+            <td>
+  <button
+    pButton
+    icon="pi pi-pencil"
+    class="p-button-text"
+    (click)="editAgentDesignation(row)">
+  </button>
+</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-tabpanel>
+
+  </p-tabpanels>
+
+</p-tabs>
+     </div>
+ </div>
+  </div>
