@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CommonModule } from '@angular/common';
@@ -45,6 +46,8 @@ import { Auth } from '../../services/auth';
 import * as XLSX from 'xlsx';
 import { from, concatMap, toArray, catchError } from 'rxjs';
 import { DatePickerModule } from 'primeng/datepicker';
+import { ExcelReportService } from '../../services/excel-report.service';
+import { firstValueFrom } from 'rxjs';
 
 
 
@@ -92,7 +95,7 @@ export class NetworktreeComponent implements OnInit, OnDestroy {
   private readonly messageService = inject(MessageService);
   private readonly cd = inject(ChangeDetectorRef);
 private readonly pdfService = inject(PdfReportService);
-
+private readonly excelReportService = inject(ExcelReportService);
 
 
   // ── State ─────
@@ -105,7 +108,8 @@ private readonly pdfService = inject(PdfReportService);
 designations: any[] = [];
 designationsstaff: any[] = [];
 staffDesignations: any[] = [];
-
+allEmployeeCodes: string[] = [];
+allAgentsFlat: any[] = [];
 agents = [
   { name: 'S1', value: 'S1' },
   { name: 'S2', value: 'S2' }
@@ -132,6 +136,7 @@ selectedBranchIDs:    number[] = [];
 availableBranches:    any[]    = [];  // filtered by parent branches
 // end 
 
+
   form!: FormGroup;
   globalSearchValue = '';
   noDataMessage = '';
@@ -146,7 +151,38 @@ availableBranches:    any[]    = [];  // filtered by parent branches
   statusLoadingMap: Record<number, boolean> = {};
   updateParentFailed = false;
 
+// excel state
+excelReportLoading = false;
+excelPreviewData: any[] = [];   // raw Excel rows for saving
 
+// ── Map Excel rows to preview TreeNode format ─────────────────────────
+private _mapExcelRows(rows: any[]): TreeNode[] {
+  return rows.map((row, i) => {
+
+    // ✅ get by exact column name
+    const cols  = Object.keys(row);
+    const getByIndex = (idx: number) =>
+      String(row[cols[idx]] ?? '').trim();
+
+    return {
+      data: {
+        agentID:           i + 1,
+        ibnkCustomerNo:    getByIndex(0),   // Customer Number
+        parentCustomerNo:  getByIndex(1),   // Parent Customer Number
+        roleName:          getByIndex(2),   // Role(...)
+        employeeCode:      getByIndex(3),   // Staff Code(...)
+        staffDesigName:    getByIndex(4),   // ' Staff Designation(...)'  ← had leading space
+        designationName:   getByIndex(5),   // Designation(...)
+        branchName:        getByIndex(6),   // Branch
+        joiningDate:       getByIndex(7),   // Joining Date
+        is_active:         true,
+      },
+      children: [],
+      leaf:     true,
+      expanded: false,
+    };
+  });
+}
   // ── Cleanup ──────────────────────────────────────────────────────────────
   private readonly destroy$ = new Subject<void>();
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -241,6 +277,7 @@ get selectedAgentBranchName(): string {
     this._buildForm();
      this._buildUpdateDesigForm(); 
     this._loadRoot();
+    this._loadAllAgentsWithDetails();  
   }
 
   ngOnDestroy(): void {
@@ -653,13 +690,42 @@ private _runSearch(): void {
     this.uiloading = false;
     this.cd.markForCheck();
   }
+  // staffduplicatechackmethod1105
+// ── Check staff code duplicate in loaded tree ─────────────────────────
+private _isStaffCodeDuplicate(
+  code: string,
+  excludeAgentID?: number
+): boolean {
+  if (!code?.trim()) return false;
+  if (!this.allAgentsFlat?.length) return false;
+
+  return this.allAgentsFlat.some(agent => {
+    if (!agent?.employeeCode) return false;
+
+    // ✅ exclude self when editing
+    if (excludeAgentID && agent.agentID === excludeAgentID) return false;
+
+    return agent.employeeCode.trim().toLowerCase()
+        === code.trim().toLowerCase();
+  });
+}
   // new change 22-04-2026 
 get isStaffRole(): boolean {
-  const roleID = this.form.value.roleID;
-  const role   = this.roles.find(r => r.roleID === roleID);
-  const name   = role?.roleName?.toLowerCase() ?? '';
+
+  const roleID = this.form.get('roleID')?.value;
+
+  if (!roleID || !this.roles?.length) {
+    return false;
+  }
+
+  const role = this.roles.find(r => r.roleID == roleID);
+
+  const name = (role?.roleName || '').toLowerCase();
+
   return name.includes('staff') || name.includes('salaried');
 }
+
+
   // ── Save agent ────────────────────────────────────────────────────────────
 saveAgent(): void {
 
@@ -703,6 +769,49 @@ saveAgent(): void {
   //   });
   //   return;
   // }
+// ✅ validate staff code duplicate
+if (this.isStaffRole) {
+  // alert("HaiiValidate")
+  this.form.get('employeeCode')?.setValidators([Validators.required]);
+} else {
+  this.form.get('employeeCode')?.clearValidators();
+}
+
+this.form.get('employeeCode')?.updateValueAndValidity();
+if (this.isStaffRole) {
+
+  const empCode = this.form.value.employeeCode?.trim();
+
+  if (!empCode) {
+
+    this.form.get('employeeCode')?.markAsTouched();
+
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Validation',
+      detail: 'Employee Code is required for Staff role'
+    });
+
+    return;
+  }
+
+  if (this._isStaffCodeDuplicate(empCode)) {
+    // alert("Duplicatecode");
+
+    this.form.get('employeeCode')?.setErrors({
+      ...(this.form.get('employeeCode')?.errors || {}),
+      duplicate: true
+    });
+
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Duplicate Staff Code',
+      detail: `Staff code "${empCode}" already exists`
+    });
+
+    return;
+  }
+}
 
   // ✅ validate Role
   if (!this.form.value.roleID) {
@@ -744,7 +853,6 @@ if (!this.form.value.joiningDate) {
     });
     return;
   }
-
 
 
 
@@ -796,6 +904,8 @@ if (this.selectedParent?.data) {
   payload.parentAgentID = introducedByID;  // ✅ from form control
 }
   //  console.log('Payload:', JSON.stringify(payload, null, 2)); 
+      // alert(`Row ${this.excelSavedCount + 1} payload: ` + JSON.stringify(payload));
+   
   //  alert(JSON.stringify(payload, null, 2));
 
   this.agentService
@@ -812,6 +922,7 @@ if (this.selectedParent?.data) {
           this.closeDialog();
           this.messageService.add({ severity: 'success', summary: 'Success', detail: 'Agent created successfully' });
           this.selectedParent ? this._reloadChildren(this.selectedParent) : this._loadRoot();
+            this._loadAllAgentsWithDetails();  //refreshDuplicateStaffcode  
         }
         this.loading = false;
       },
@@ -1173,79 +1284,93 @@ openExcelUpload(): void {
 }
 // ── Parse Excel file ──────────────────────────────────────────────────
 // ✅ Wrap FileReader in a Promise so await works properly
-private _handleExcelFile(file: File): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (!file) return resolve();
-    this.excelFileName = file.name;
-    const reader = new FileReader();
+private _handleExcelFile(file: File): void {
+  if (!file) return;
 
-    reader.onload = (e: any) => {
-      try {
-        const workbook = XLSX.read(e.target.result, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+  this.excelFileName = file.name;
+  const reader = new FileReader();
 
-        if (!rows.length) {
-          this.messageService.add({
-            severity: 'warn',
-            summary: 'Empty File',
-            detail: 'No data found in the Excel file'
-          });
-          return resolve();
-        }
+  reader.onload = (e: any) => {
+    try {
+      const workbook  = XLSX.read(e.target.result, { type: 'binary' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet     = workbook.Sheets[sheetName];
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet, {
+  raw: false,
+  defval: ''
+});
 
-        this.excelTreeData = this._convertExcelToTree(rows);
-        this.excelPreviewVisible = true;
-        this.cd.markForCheck();
-        resolve();
-      } catch (err) {
+      if (!rows.length) {
+        this.messageService.add({
+          severity: 'warn',
+          summary:  'Empty File',
+          detail:   'No data found in the Excel file'
+        });
+        return;
+      }
+
+      // ✅ validate required columns exist
+      const firstRow = rows[0];
+      const hasCustomerNo = Object.keys(firstRow).some(k =>
+        k.toLowerCase().includes('customer number')
+      );
+
+      if (!hasCustomerNo) {
         this.messageService.add({
           severity: 'error',
-          summary: 'Parse Error',
-          detail: 'Failed to read Excel file — check format'
+          summary:  'Invalid Format',
+          detail:   'Excel format is incorrect — please use the standard template'
         });
-        reject(err);
+        return;
       }
-    };
 
-    reader.onerror = () => reject(new Error('FileReader failed'));
-    reader.readAsBinaryString(file);
-  });
+      this.excelPreviewData  = rows;              // raw rows
+      this.excelTreeData     = this._mapExcelRows(rows);
+      this.excelTotalCount   = rows.length;
+      this.excelPreviewVisible = true;
+      this.cd.markForCheck();
+
+    } catch (err) {
+      this.messageService.add({
+        severity: 'error',
+        summary:  'Parse Error',
+        detail:   'Failed to read Excel file — check format'+err,
+       
+      });
+    }
+  };
+
+  reader.readAsBinaryString(file);
 }
 // ── Convert flat Excel rows → TreeNode[] ─────────────────────────────
-private _convertExcelToTree(rows: any[]): TreeNode[] {
-  // Map rows to a common format
-  // Supports both exact column names and flexible variants
-  const mapped = rows.map((row, i) => ({
-  agentID:              i + 1,
-  displayName:          row['Member Name']       ?? '—',
-  ibnkCustomerNo:       row['Customer No']       ?? '—',
-  ibnkShareClassCode:   row['Share Class Code']  ?? '',
-  ibnkShareFolioNum:    row['Folio Number']       ?? 0,
-  roleName:             row['Role']              ?? '—',
-  employeeCode:         row['Staff Code']        ?? '',
-  staffDesignation:     row['Staff Designation'] ?? '',
-  designationName:      row['Designation']       ?? '—',
-  branchName:           row['Branch']            ?? '—',
-  parentCode:           row['Parent Agent Code'] ?? null,
-  is_active:            row['Is Active'] === 'Yes',
-}));
-  // Build tree by parentCode if exists, else flat list
-  const hasParent = mapped.some(r => r.parentCode);
+// private _convertExcelToTree(rows: any[]): TreeNode[] {
 
-  if (hasParent) {
-    return this._buildTreeFromParentCode(mapped);
-  }
+//   const mapped = rows.map((row, i) => ({
+//   agentID:              i + 1,
+//   displayName:          row['Member Name']       ?? '—',
+//   ibnkCustomerNo:       row['Customer No']       ?? '—',
+//   ibnkShareClassCode:   row['Share Class Code']  ?? '',
+//   ibnkShareFolioNum:    row['Folio Number']       ?? 0,
+//   roleName:             row['Role']              ?? '—',
+//   employeeCode:         row['Staff Code']        ?? '',
+//   staffDesignation:     row['Staff Designation'] ?? '',
+//   designationName:      row['Designation']       ?? '—',
+//   branchName:           row['Branch']            ?? '—',
+//   parentCode:           row['Parent Agent Code'] ?? null,
+//   is_active:            row['Is Active'] === 'Yes',
+// }));
+//   const hasParent = mapped.some(r => r.parentCode);
 
-  // Flat list — show as siblings under root
-  return mapped.map(r => ({
-    data:     r,
-    children: [],
-    leaf:     true,
-    expanded: false,
-  }));
-}
+//   if (hasParent) {
+//     return this._buildTreeFromParentCode(mapped);
+//   }
+//   return mapped.map(r => ({
+//     data:     r,
+//     children: [],
+//     leaf:     true,
+//     expanded: false,
+//   }));
+// }
 
 // ── Build hierarchy from Parent Code column ───────────────────────────
 private _buildTreeFromParentCode(rows: any[]): TreeNode[] {
@@ -1332,9 +1457,7 @@ private _findAgentByCustomerNo(customerNo: string): any | null {
 }
 // saveExcelData 
 saveExcelData(): void {
-  const rows = this._flattenTree(this.excelTreeData);
-
-  if (!rows.length) {
+  if (!this.excelPreviewData.length) {
     this.messageService.add({
       severity: 'warn',
       summary:  'Empty',
@@ -1345,59 +1468,210 @@ saveExcelData(): void {
 
   this.excelSaveLoading  = true;
   this.excelSavedCount   = 0;
-  this.excelTotalCount   = rows.length;
+  this.excelTotalCount   = this.excelPreviewData.length;
   this.excelSaveProgress = 0;
   this.excelFailedRows   = [];
   this.cd.markForCheck();
 
-  from(rows).pipe(
-    concatMap(node => {
-      const d = node.data;
+  from(this.excelPreviewData).pipe(
+    concatMap(row => {
 
-      // ✅ Map Excel columns → API payload
-      const payload: any = {
-        ibnkShareClassCode:   d.ibnkShareClassCode  ?? '',
-        ibnkShareFolioNum:    Number(d.ibnkShareFolioNum) || 0,
-        roleID:               this._resolveRoleID(d.roleName),
-        designationID:        this._resolveDesignationID(d.designationName),
-        employeeDesignationID: this._resolveStaffDesignationID(d.staffDesignation),
-        employeeCode:         d.employeeCode        ?? '',
-        branchIDs:            this._resolveBranchIDs(d.branchName),
-        isActive:             d.is_active           ?? true,
-      };
+      // ✅ index-based column access — avoids keyword mismatch
+      const cols         = Object.keys(row);
+      const getByIndex   = (idx: number) => String(row[cols[idx]] ?? '').trim();
 
-      // ✅ resolve parent from Customer No
-      if (d.parentCode) {
-        const parentAgent = this._findAgentByCustomerNo(d.parentCode);
-        if (parentAgent) {
-          payload.parentAgentID = parentAgent.agentID;
-        }
+      const customerNo = String(getByIndex(0) || '')
+  .trim()
+  .padStart(11, '0');
+      const parentCustNo = String(getByIndex(1) || '')
+  .trim()
+  .padStart(11, '0');
+      const roleName        = getByIndex(2);  // Role
+      const staffCode       = getByIndex(3);  // Staff Code
+      const staffDesigName  = getByIndex(4);  // Staff Designation
+      const designationName = getByIndex(5);  // Designation
+      const branchName      = getByIndex(6);  // Branch
+      const joiningDateRaw  = getByIndex(7);  // Joining Date
+
+      // ✅ debug — remove after confirmed
+      console.log('--- Row ---');
+      console.log('customerNo:', customerNo);
+      console.log('designationName:', JSON.stringify(designationName));
+      console.log('staffDesigName:', JSON.stringify(staffDesigName));
+      console.log('designations:', this.designations.map(d => d.name));
+      console.log('staffDesignations:', this.staffDesignations.map(d => d.name));
+
+      // ── Validate required ────────────────────────────────────────
+      if (!customerNo) {
+        this.excelFailedRows.push({
+          name:   `Row ${this.excelSavedCount + 1}`,
+          reason: 'Customer Number is required'
+        });
+        this._incrementProgress();
+        console.log("customerNo");
+        return [];
+
       }
 
-      // console.log(`Saving row ${this.excelSavedCount + 1}:`, payload);
+      // ── Resolve Role ─────────────────────────────────────────────
+      const role = this.roles.find(r =>
+        r.roleName?.trim().toLowerCase() === roleName?.trim().toLowerCase()
+      );
+      if (!role) {
+        this.excelFailedRows.push({
+          name:   customerNo,
+          reason: `Invalid Role: "${roleName}"`
+        });
+        this._incrementProgress();
+        console.log("Role");
 
-      return this.agentService.addAgent(payload).pipe(
-        concatMap(res => {
-          this.excelSavedCount++;
-          this.excelSaveProgress = Math.round(
-            (this.excelSavedCount / this.excelTotalCount) * 100
+        return [];
+      }
+
+      // ── Resolve Designation — exact + fallback includes ──────────
+      const desig =
+        this.designations.find(d =>
+          d.name?.trim().toLowerCase() === designationName?.trim().toLowerCase()
+        ) ??
+        this.designations.find(d =>
+          d.name?.trim().toLowerCase().includes(designationName?.trim().toLowerCase()) ||
+          designationName?.trim().toLowerCase().includes(d.name?.trim().toLowerCase())
+        );
+
+      if (!desig) {
+        this.excelFailedRows.push({
+          name:   customerNo,
+          reason: `Designation "${designationName}" not found`
+        });
+        this._incrementProgress();
+        console.log("Desig");
+
+        return [];
+      }
+
+      // ── Resolve Staff Designation — exact + fallback ─────────────
+      const staffDesig =
+        this.staffDesignations.find(d =>
+          d.name?.trim().toLowerCase() === staffDesigName?.trim().toLowerCase()
+        ) ??
+        this.staffDesignations.find(d =>
+          d.name?.trim().toLowerCase().includes(staffDesigName?.trim().toLowerCase()) ||
+          staffDesigName?.trim().toLowerCase().includes(d.name?.trim().toLowerCase())
+        );
+
+      // ── Resolve Branch ───────────────────────────────────────────
+      const branch = this.branches.find(b =>
+        b.branchName?.trim().toLowerCase() === branchName?.trim().toLowerCase()
+      );
+
+      // ── Resolve Parent Agent ─────────────────────────────────────
+      const parentAgent = parentCustNo
+        ? this.allAgentsFlat.find(a =>
+            String(a.ibnkCustomerNo).trim() === String(parentCustNo).trim()
+          )
+        : null;
+
+      // ── Is Staff role ────────────────────────────────────────────
+      const isStaff = role.roleName?.toLowerCase().includes('staff') ||
+                      role.roleName?.toLowerCase().includes('salaried');
+
+      // ── Staff code duplicate check ────────────────────────────────
+      if (isStaff && staffCode && this._isStaffCodeDuplicate(staffCode)) {
+        this.excelFailedRows.push({
+          name:   customerNo,
+          reason: `Duplicate Staff Code: "${staffCode}"`
+        });
+        console.log("staffCode");
+
+        this._incrementProgress();
+        return [];
+      }
+   
+      // ── Fetch shareholder to get ShareClass + Folio ──────────────
+      return this.agentService.findShareHolderByCustomer(customerNo).pipe(
+      
+        concatMap(shareholder => {
+          // alert("Shareholder");
+
+          if (!shareholder) {
+            this.excelFailedRows.push({
+              name:   customerNo,
+              reason: `Customer "${customerNo}" not found in shareholders`
+            });
+            this._incrementProgress();
+            //  alert("not found in shareholders");
+
+            return [];
+          }
+
+          // ── Build payload ────────────────────────────────────────
+          const payload: any = {
+            roleID:             role.roleID,
+            designationID:      desig.id,
+            isActive:           true,
+            ibnkShareClassCode: shareholder.ibnkShareClassCode,  // ✅ from shareholder
+            ibnkShareFolioNum:  Number(shareholder.ibnkShareFolioNum), // ✅ from shareholder
+            branchIDs:          branch ? [branch.branchID] : [],
+          };
+
+          // staff fields
+          if (isStaff) {
+            payload.employeeCode          = staffCode       || '';
+            payload.employeeDesignationID = staffDesig?.id  ?? null;
+          }
+
+          // joining date
+          const parsedDate = this._parseExcelDate(joiningDateRaw);
+          if (parsedDate) {
+  const d = new Date(parsedDate);
+  payload.joiningDate = !isNaN(d.getTime()) ? d.toISOString() : null;
+}
+
+          // parent
+          if (parentAgent?.agentID) {
+            payload.parentAgentID = parentAgent.agentID;
+          }
+
+          console.log('Final payload:', JSON.stringify(payload, null, 2));
+          // alert(`Row ${this.excelSavedCount + 1} payload: ` + JSON.stringify(payload));
+          // ── Call Create API ──────────────────────────────────────
+          return this.agentService.addAgent(payload).pipe(
+            concatMap(res => {
+              // ✅ add to flat list for next row's parent lookup
+              if (res?.data?.agentID) {
+                
+                this.allAgentsFlat.push({
+                  agentID:        res.data.agentID,
+                  ibnkCustomerNo: customerNo,
+                  employeeCode:   staffCode,
+                });
+              }
+              this._incrementProgress();
+              // alert(res+"Result");
+              return [res];
+            }),
+            
+            catchError(err => {
+              this.excelFailedRows.push({
+                name:   customerNo,
+                reason: err?.error?.message ?? `Error ${err.status}`
+              });
+              this._incrementProgress();
+              // alert(err.status);
+
+              return [];
+            })
           );
-          this.cd.markForCheck();
-          return [res];
         }),
         catchError(err => {
-          // ✅ log failed row with reason
           this.excelFailedRows.push({
-            name:   d.displayName,
-            code:   d.ibnkCustomerNo,
-            reason: err?.error?.message ?? `Error ${err.status}`
+            name:   customerNo,
+            reason: err?.error?.message ?? 'Failed to find shareholder'
           });
-          this.excelSavedCount++;
-          this.excelSaveProgress = Math.round(
-            (this.excelSavedCount / this.excelTotalCount) * 100
-          );
-          this.cd.markForCheck();
-          return [];  // continue to next row
+          this._incrementProgress();
+              // alert("Failed to find shareholder");
+
+          return [];
         })
       );
     }),
@@ -1410,7 +1684,7 @@ saveExcelData(): void {
 
       const failed  = this.excelFailedRows.length;
       const success = this.excelTotalCount - failed;
-
+      //  alert(success);
       if (failed === 0) {
         this.messageService.add({
           severity: 'success',
@@ -1419,26 +1693,84 @@ saveExcelData(): void {
         });
         this.closeExcelPreview();
         this._loadRoot();
+        this._loadAllAgentsWithDetails();
 
       } else if (success > 0) {
         this.messageService.add({
           severity: 'warn',
           summary:  'Partial Import',
-          detail:   `${success} saved, ${failed} failed — check preview for details`
+          detail:   `${success} saved, ${failed} failed`
         });
         this._loadRoot();
+        this._loadAllAgentsWithDetails();
 
       } else {
-        this.messageService.add({
-          severity: 'error',
-          summary:  'Import Failed',
-          detail:   'All rows failed — check data format'
-        });
+    
+  const uniqueErrors = [...new Set(this.excelFailedRows.map(row => row.reason))];
+  const errorDetail = uniqueErrors.length > 0 
+    ? `Failures: ${uniqueErrors.join(', ')}` 
+    : 'All rows failed — check data and try again';
+
+  this.messageService.add({
+    severity: 'error',
+    summary: 'Import Failed',
+    detail: errorDetail,
+    life: 5000 
+  });
+
+  // Optional: If you want to show a toast for EVERY failed row (careful with many rows!)
+  /*
+  this.excelFailedRows.forEach(err => {
+    this.messageService.add({
+      severity: 'error',
+      summary: `Row Error: ${err.name}`,
+      detail: err.reason
+    });
+  });
+  */
+
+        // this.messageService.add({
+        //   severity: 'error',
+        //   summary:  'Import Failed',
+        //   detail:   'All rows failed — check data and try again'
+        // });
       }
     }
   });
 }
 
+
+// ── Helper — increment progress ───────────────────────────────────────
+private _incrementProgress(): void {
+  this.excelSavedCount++;
+  this.excelSaveProgress = Math.round(
+    (this.excelSavedCount / this.excelTotalCount) * 100
+  );
+  this.cd.markForCheck();
+}
+
+// ── Helper — parse Excel date ─────────────────────────────────────────
+private _parseExcelDate(raw: string): string | null {
+  if (!raw) return null;
+  try {
+    let d: Date;
+    if (!isNaN(Number(raw))) {
+      // Excel serial number
+      const excelEpoch = new Date(1899, 11, 30);
+      d = new Date(excelEpoch.getTime() + Number(raw) * 86400000);
+    } else {
+      const parts = raw.split(/[\/\-\.]/);
+      if (parts.length === 3 && parts[0].length === 2) {
+        d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);  // DD/MM/YYYY
+      } else {
+        d = new Date(raw);
+      }
+    }
+    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+  } catch {
+    return null;
+  }
+}
 // get static root 
 get isStaticRoot(): boolean {
   return this.selectedParent?.data?.agentID === null &&
@@ -1699,5 +2031,135 @@ closeUpdateBranchDialog(): void {
   this.selectedAgentForBranch = null;
   this.selectedBranchIDs      = [];
   this.availableBranches      = [];
+}
+
+// create excel report 
+// method
+async downloadExcelReport(): Promise<void> {
+  this.excelReportLoading = true;
+  this.cd.markForCheck();
+
+  try {
+    await this.excelReportService.downloadAgentExcel();
+    this.messageService.add({
+      severity: 'success',
+      summary:  'Downloaded',
+      detail:   'Excel report downloaded successfully'
+    });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (err) {
+    this.messageService.add({
+      severity: 'error',
+      summary:  'Error',
+      detail:   'Failed to generate Excel report'
+    });
+  } finally {
+    this.excelReportLoading = false;
+    this.cd.markForCheck();
+  }
+}
+
+// emplloyeeCodevalidationforDuplication
+// ── Blur check for Add Agent form ─────────────────────────────────────
+onEmpCodeBlur(): void {
+
+  const control = this.form.get('employeeCode');
+
+  const code = control?.value?.trim();
+
+  if (!code || !this.isStaffRole) {
+    return;
+  }
+
+  if (this._isStaffCodeDuplicate(code)) {
+
+    control?.setErrors({
+      ...(control.errors || {}),
+      duplicate: true
+    });
+
+  } else {
+
+    // remove only duplicate error
+    const errors = { ...(control?.errors || {}) };
+
+    delete errors['duplicate'];
+
+    control?.setErrors(
+      Object.keys(errors).length ? errors : null
+    );
+  }
+
+  control?.updateValueAndValidity();
+}
+
+// ── Blur check for Update Designation form ────────────────────────────
+onUpdateEmpCodeBlur(): void {
+  const code = this.updateDesigForm.value.employeeCode?.trim();
+  if (!code || !this.isStaffRoleInUpdateForm) return;
+
+  const isDuplicate = this._isStaffCodeDuplicate(
+    code,
+    this.selectedAgentForUpdate?.agentID  // ✅ exclude self
+  );
+
+  if (isDuplicate) {
+    this.updateDesigForm.get('employeeCode')?.setErrors({ duplicate: true });
+  } else {
+    const errs = { ...this.updateDesigForm.get('employeeCode')?.errors };
+    delete errs['duplicate'];
+    this.updateDesigForm.get('employeeCode')
+      ?.setErrors(Object.keys(errs).length ? errs : null);
+  }
+}
+
+// loadAllDataChildrenForStaffcodeValidation
+// ── Step 1: get all agent IDs from tree ───────────────────────────────
+private _loadAllAgentsWithDetails(): void {
+  this.agentService.getChildren()
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(async (roots) => {
+      const allIDs: number[] = [];
+      await this._collectAllIDs(roots, allIDs);
+
+      // ── Step 2: fetch details for each agent ──────────────────────
+      const details: any[] = [];
+      for (const id of allIDs) {
+        try {
+          const detail = await firstValueFrom(
+            this.agentService.getAgentByID(id)
+          );
+          if (detail) details.push(detail);
+        } catch {
+          // skip failed
+        }
+      }
+
+      this.allAgentsFlat = details;
+      console.log('All agents with details:', this.allAgentsFlat.length);
+      this.cd.markForCheck();
+    });
+}
+
+// ── Recursively collect all agent IDs ─────────────────────────────────
+private async _collectAllIDs(
+  agents: any[],
+  result: number[]
+): Promise<void> {
+  for (const agent of agents) {
+    if (agent?.agentID) {
+      result.push(agent.agentID);
+    }
+    try {
+      const children = await firstValueFrom(
+        this.agentService.getChildren(agent.agentID)
+      );
+      if (children?.length) {
+        await this._collectAllIDs(children, result);
+      }
+    } catch {
+      console.log();
+     }
+  }
 }
 }

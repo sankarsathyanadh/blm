@@ -21,57 +21,89 @@
   </div>
 
   <!-- Preview Tree Table -->
-  <p-treeTable [value]="excelTreeData" [scrollable]="true" scrollHeight="400px">
+<p-treeTable [value]="excelTreeData" [scrollable]="true" scrollHeight="350px">
 
-    <ng-template pTemplate="header">
-      <tr>
-        <th style="min-width:180px">Name</th>
-        <th>Code</th>
-        <th>Customer No</th>
-        <th>Folio</th>
-        <th>Role</th>
-        <th>Status</th>
-      </tr>
-    </ng-template>
+  <ng-template pTemplate="header">
+    <tr>
+      <th style="min-width:160px">Customer No</th>
+      <th>Parent Customer No</th>
+      <th>Role</th>
+      <th>Staff Code</th>
+      <th>Staff Designation</th>
+      <th>Designation</th>
+      <th>Branch</th>
+      <th>Joining Date</th>
+    </tr>
+  </ng-template>
 
-    <ng-template pTemplate="body" let-rowNode let-rowData="rowData">
-      <tr>
-        <td style="min-width:180px">
-          <p-treeTableToggler [rowNode]="rowNode" />
-          <span class="ms-2">{{ rowData.displayName }}</span>
-        </td>
-        <td>{{ rowData.agentCode }}</td>
-        <td>{{ rowData.ibnkCustomerNo }}</td>
-        <td>{{ rowData.ibnkShareFolioNum }}</td>
-        <td>{{ rowData.roleName }}</td>
-        <td>
-          <span class="badge" [class.badge-success]="rowData.is_active" [class.badge-danger]="!rowData.is_active">
-            {{ rowData.is_active ? 'Active' : 'Inactive' }}
-          </span>
-        </td>
-      </tr>
-    </ng-template>
+  <ng-template pTemplate="body" let-rowNode let-rowData="rowData">
+    <tr>
+      <td style="min-width:160px">
+        <p-treeTableToggler [rowNode]="rowNode" />
+        <span class="ms-2">{{ rowData.ibnkCustomerNo }}</span>
+      </td>
+      <td>{{ rowData.parentCustomerNo || '—' }}</td>
+      <td>{{ rowData.roleName }}</td>
+      <td>{{ rowData.employeeCode || '—' }}</td>
+      <td>{{ rowData.staffDesigName || '—' }}</td>
+      <td>{{ rowData.designationName }}</td>
+      <td>{{ rowData.branchName || '—' }}</td>
+      <td>{{ rowData.joiningDate || '—' }}</td>
+    </tr>
+  </ng-template>
 
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="6" class="text-center py-4 text-muted">
-          <i class="pi pi-inbox me-2"></i>No data found
-        </td>
-      </tr>
-    </ng-template>
+</p-treeTable>
+<div class="container-fluid">
+     <div class="row" >
+      <div class="col-md-12">
+          
+        <div class="d-flex justify-content-end gap-2">
+          <p-button label="Cancel" icon="pi pi-times-circle" [raised]="true" severity="warn" type="button"
+            (click)="closeExcelPreview()" />
+          <p-button label="Save" icon="pi pi-save" [raised]="true" severity="success" type="button"
+            (click)="saveExcelData()" [loading]="loading" />
+        </div>
+      
+      </div>
 
-  </p-treeTable>
+     </div>
+</div>
 
 </p-dialog>
 <div class="network-container">
 
   <!-- ── Header ─────────────────────────────────────────────────────── -->
-  <div class="d-flex flex-md-row flex-column justify-content-between  mb-3">
+  <div class="d-flex flex-md-row flex-column justify-content-between  mb-3 align-items-center">
     <div>
       <h2 class="mb-1">Agents</h2>
       <p class="text-muted mb-0">Manage your MLM Agent tree structure</p>
     </div>
-    <p-button label="Add New Member" class="mt-1 " icon="pi pi-plus" (onClick)="openAddDialogWithoutParent()" />
+    <div class="d-flex flex-md-row flex-column gap-2 align-items-center">
+         <p-button
+        label="Export Excel"
+        icon="pi pi-file-excel"
+        severity="success"
+        [outlined]="true"
+        [loading]="excelReportLoading"
+        pTooltip="Download full agent report"
+        tooltipPosition="bottom" class="mt-1 "
+        (onClick)="downloadExcelReport()" />
+          @if (isAdmin) {
+      <p-button
+        label="Import Excel"
+        icon="pi pi-file-excel"
+        severity="success"
+        [outlined]="true"
+        pTooltip="Upload your agent Excel report"
+        tooltipPosition="bottom" class="mt-1 "
+        (onClick)="openExcelUpload()" />
+    }
+        <p-button label="Add New Member" class="mt-1 " icon="pi pi-plus" (onClick)="openAddDialogWithoutParent()" />
+       
+ 
+       
+    </div>
+  
   </div>
 
   <!-- ── Search bar ──────────────────────────────────────────────────── -->
@@ -85,7 +117,7 @@
     </div>
   </div>
 
-  <!-- ── Tree table ──────────────────────────────────────────────────── -->
+  <!-- ── Tree table  -->
   <div class="card p-2 shadow-sm bg-light">
     <div class="table-wrapper">
       <p-treeTable [value]="filteredTreeData" [lazy]="true" [loading]="loading" (onNodeExpand)="loadChildren($event)"
@@ -479,8 +511,24 @@
         <div class="field mb-3">
           <label class="form-label">Staff Code</label>
 
-          <input pInputText type="text" class="form-control" formControlName="employeeCode"
+          <input pInputText type="text" class="form-control" formControlName="employeeCode" (blur)="onEmpCodeBlur()"
             placeholder="Enter Staff Code" />
+   @if (form.get('employeeCode')?.hasError('duplicate')) {
+  <small class="text-danger">
+    <i class="pi pi-exclamation-circle me-1"></i>
+    Staff code already exists
+  </small>
+}
+     @if (
+  form.get('employeeCode')?.touched &&
+  form.get('employeeCode')?.hasError('required') &&
+  isStaffRole
+) {
+  <small class="text-danger">
+    <i class="pi pi-exclamation-circle me-1"></i>
+    Employee Code is required
+  </small>
+}
 
         </div>
       </div>
@@ -929,6 +977,26 @@
                  
              </div> -->
         }
+        @if (isStaffRoleInUpdateForm) {
+  <div class="col-md-6">
+    <div class="field mb-3">
+      <label class="form-label">Staff Code</label>
+      <input
+        pInputText
+        class="w-100"
+        placeholder="Enter Staff Code"
+        formControlName="employeeCode"
+        (blur)="onUpdateEmpCodeBlur()" />  <!-- ✅ instant check on blur -->
+
+      @if (updateDesigForm.get('employeeCode')?.errors?.['duplicate']) {
+        <small class="text-danger">
+          <i class="pi pi-exclamation-circle me-1"></i>
+          Staff code already exists — use a unique code
+        </small>
+      }
+    </div>
+  </div>
+}
         <div class="col-md-6">
               
       <div class="field mb-4">
