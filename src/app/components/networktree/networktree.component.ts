@@ -154,6 +154,8 @@ availableBranches:    any[]    = [];  // filtered by parent branches
 // excel state
 excelReportLoading = false;
 excelPreviewData: any[] = [];   // raw Excel rows for saving
+excelPreviewLoading = false;
+loadingSaveExcel = false;
 
 // ── Map Excel rows to preview TreeNode format ─────────────────────────
 private _mapExcelRows(rows: any[]): TreeNode[] {
@@ -1252,15 +1254,16 @@ canDo(action: 'changeParent' | 'addAgent' | 'deactivate' | 'pdf'): boolean {
 
 // add to imports at top
 
-// ── Excel state ───────────────────────────────────────────────────────
+// ── Excel state ────
 
 
 
 
-// ── Trigger file input ────────────────────────────────────────────────
+// ── Trigger file input ────
 
 
 openExcelUpload(): void {
+  this.excelPreviewLoading = true;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.xlsx,.xls';
@@ -1281,6 +1284,8 @@ openExcelUpload(): void {
   };
 
   input.click();
+  this.excelPreviewLoading = false;
+
 }
 // ── Parse Excel file ──────────────────────────────────────────────────
 // ✅ Wrap FileReader in a Promise so await works properly
@@ -1457,6 +1462,7 @@ private _findAgentByCustomerNo(customerNo: string): any | null {
 }
 // saveExcelData 
 saveExcelData(): void {
+  this.loadingSaveExcel = true;
   if (!this.excelPreviewData.length) {
     this.messageService.add({
       severity: 'warn',
@@ -1737,6 +1743,7 @@ saveExcelData(): void {
       }
     }
   });
+  this.loadingSaveExcel = false;
 }
 
 
@@ -1770,6 +1777,8 @@ private _parseExcelDate(raw: string): string | null {
   } catch {
     return null;
   }
+
+
 }
 // get static root 
 get isStaticRoot(): boolean {

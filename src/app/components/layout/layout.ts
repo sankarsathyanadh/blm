@@ -55,6 +55,12 @@ import { Auth } from '../../services/auth';
               <span>NetworkUser</span>
             }
           </div> -->
+           <div class="sidebar-item" routerLink="/AgentDashboard" routerLinkActive="active">
+            <i class="pi pi-users"></i>
+            @if (!isCollapsed()) {
+              <span>Agent Dashboard</span>
+            }
+          </div>
           @if (isAdmin) {
           <div class="sidebar-item" routerLink="/designation" routerLinkActive="active">
             <i class="pi pi-users"></i>
@@ -75,7 +81,7 @@ import { Auth } from '../../services/auth';
 
       <!-- Main Content -->
       <div class="flex-grow-1 overflow-auto" style="height: 100vh;">
-        <header class="bg-white border-bottom p-3 d-flex justify-content-between align-items-center sticky-top">
+        <header class="bg-white border-bottom px-4 py-2 d-flex justify-content-between align-items-center sticky-top">
           <h5 class="m-0 text-success fw-bold ">Dashboard</h5>
           <div class="d-flex align-items-center gap-3">
             <span class="text-muted small">Welcome, Admin</span>
@@ -85,7 +91,7 @@ import { Auth } from '../../services/auth';
           </div>
         </header>
         
-        <main class="p-4">
+        <main class="px-4 py-2">
           <router-outlet></router-outlet>
         </main>
       </div>

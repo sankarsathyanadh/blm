@@ -97,7 +97,18 @@ td{
 
 /* new code Css  */
 
+/* ::ng-deep .custom-tree-table  {
+  overflow: auto;
+  max-height: 500px !important;
+} */
 
+::ng-deep .custom-tree-table  tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  /* background: #b32525; */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 /* ═══════════════════════════════════════════════════════════
  Responsive TreeTable
 ═══════════════════════════════════════════════════════════ */
@@ -255,7 +266,9 @@ td{
   font-size: 0.875rem;
   display: block;
 }
-
+.w_12P{
+  width: 90px;
+}
 /* ── Alert box ────────────────────────────────────────────── */
 .alert-box {
   background: #fff3cd;

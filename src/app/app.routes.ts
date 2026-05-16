@@ -14,6 +14,10 @@ export const routes: Routes = [
         path: 'dashboard', 
         loadComponent: () => import('./components/dashboard/dashboard').then(m => m.DashboardComponent) 
       },
+       { 
+        path: 'AgentDashboard', 
+        loadComponent: () => import('./components/Agentdashboard/Agentdashboard.component').then(m => m.AgentdashboardComponent) 
+      },
       { 
         path: 'network', 
         loadComponent: () => import('./components/network/network').then(m => m.NetworkComponent) 

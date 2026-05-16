@@ -37,7 +37,8 @@ body {
 }
 /* added style   */
  .network-container {
-      max-width: 1200px;
+      max-width: 1250px;
+      /* max-width: calc(100% - 200px); */
       margin: 0 auto;
     }
     /* .p-dialog {
