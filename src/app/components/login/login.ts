@@ -120,7 +120,8 @@ onSubmit() {
 
         console.log('Token:', res.data.token);
 
-        this.router.navigate(['/networktree']);
+        // this.router.navigate(['/networktree']);
+        this.router.navigate(['/AgentDashboard']);
 
       } else {
 

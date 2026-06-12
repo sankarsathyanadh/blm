@@ -1,5 +1,5 @@
 :host ::ng-deep .custom-padding-table .p-datatable-thead > tr > th,
 :host ::ng-deep .custom-padding-table .p-datatable-tbody > tr > td {
     padding: 4px 8px !important;
-    font-size: 0.8rem
+    font-size: 0.8rem;
 }

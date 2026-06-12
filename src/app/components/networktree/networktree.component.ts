@@ -48,7 +48,8 @@ import { from, concatMap, toArray, catchError } from 'rxjs';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ExcelReportService } from '../../services/excel-report.service';
 import { firstValueFrom } from 'rxjs';
-
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 
 @Component({
@@ -80,7 +81,9 @@ import { firstValueFrom } from 'rxjs';
     MenuModule,
     TooltipModule ,
     PopoverModule,
-    DatePickerModule 
+    DatePickerModule ,
+    InputGroupModule,
+    InputGroupAddonModule,
 
   ],
   providers: [MessageService], // scoped here so toast works standalone
@@ -135,7 +138,11 @@ selectedAgentForBranch: any = null;
 selectedBranchIDs:    number[] = [];
 availableBranches:    any[]    = [];  // filtered by parent branches
 // end 
-
+// global search assigning 
+// ── Search state ─────
+searchLoading  = false;
+searchActive   = false;  
+// endGlobal search 
 
   form!: FormGroup;
   globalSearchValue = '';
@@ -233,7 +240,7 @@ agentLoading = false;
 // end view 
 // code to get designation details of member  
 getDesignationName(designationID: number): string {
-  // alert(designationID);
+
   if (!designationID) return '—';
   if (!this.designations?.length) return '—';
   const found = this.designations.find(d => d.id === designationID);
@@ -279,7 +286,7 @@ get selectedAgentBranchName(): string {
     this._buildForm();
      this._buildUpdateDesigForm(); 
     this._loadRoot();
-    this._loadAllAgentsWithDetails();  
+    // this._loadAllAgentsWithDetails();  
   }
 
   ngOnDestroy(): void {
@@ -395,46 +402,47 @@ loadChildren(event: { node: any }): void {
     .pipe(takeUntil(this.destroy$))
     .subscribe({
       next: (res) => {
-
         if (!res?.length) {
           node.children = [];
           node.leaf = true;
           node.loading = false;
+          // Trigger reference change to let PrimeNG recognize completion
+          this.filteredTreeData = [...this.filteredTreeData];
+          this.cd.markForCheck();
           return;
         }
 
-        // ✅ Step 1: call designation API for each child
+        // Step 1: Map child elements to designation details
         const requests = res.map(child =>
           this.agentService.getAgentByIdinChild(child.agentID)
         );
 
-        // ✅ Step 2: wait for all responses
+        // Step 2: Handle forkJoin safely
         forkJoin(requests).subscribe({
           next: (detailsArray) => {
-
-            // 🔥 Step 3: merge correctly (IMPORTANT FIX HERE)
             const mergedData = res.map((child, index) => {
               const details = detailsArray[index];
-
               return {
                 ...child,
-                // ✅ FIX THIS BASED ON YOUR API STRUCTURE
                 designationCode: details?.designation?.designationCode ?? '—',
                 grade: details?.designation?.grade ?? '—'
               };
             });
 
-            // ✅ Step 4: convert to tree nodes
+            // Step 3: Assign children nodes directly onto the reference node
             node.children = this._toTreeNodes(mergedData);
             node.leaf = false;
             node.loading = false;
             node.expanded = true;
 
+            // CRITICAL FIX: Destructure the whole array cleanly to refresh PrimeNG state tracking
             this.filteredTreeData = [...this.filteredTreeData];
             this.cd.markForCheck();
           },
           error: () => {
             node.loading = false;
+            this.filteredTreeData = [...this.filteredTreeData];
+            this.cd.markForCheck();
           }
         });
       },
@@ -461,10 +469,193 @@ private _toTreeNodes(data: any[]): TreeNode[] {
 }
 
   // ── Search ───────────────────────────────────────────────────────────────
-  onSearchInput(): void {
-    if (this.searchTimeout) clearTimeout(this.searchTimeout);
-    this.searchTimeout = setTimeout(() => this._runSearch(), 400);
+ // ── Search button click ───────────────────────────────────────────────
+searchAgents(): void {
+  const value = this.globalSearchValue?.trim();
+
+  if (!value) {
+    this.clearSearch();
+    return;
   }
+
+  if (value.length < 2) {
+    this.messageService.add({
+      severity: 'warn',
+      summary:  'Search',
+      detail:   'Enter at least 2 characters to search'
+    });
+    return;
+  }
+
+  this.searchLoading = true;
+  this.searchActive  = true;
+  this.cd.markForCheck();
+
+  // ✅ ensure all agents loaded before searching
+  if (!this.allAgentsFlat?.length) {
+    this._loadAllAgentsWithDetails().then(() => {
+      this._doSearch(value);
+    });
+  } else {
+    this._doSearch(value);
+  }
+}
+
+// ── Actual search logic ───────────────────────────────────────────────
+private _doSearch(value: string): void {
+  const lower = value.toLowerCase();
+  const upper = value.toUpperCase();
+
+  // ✅ search across ALL agents — exclude static BLM Admin root
+  const matched = this.allAgentsFlat.filter(agent => {
+    if (!agent) return false;
+
+    // ✅ skip static BLM Admin root
+    if (agent.agentID === null || agent.agentCode === 'BLM0000000000') return false;
+
+    return (
+      String(agent.agentCode       ?? '').toUpperCase().includes(upper) ||
+      String(agent.ibnkCustomerNo  ?? '').toLowerCase().includes(lower) ||
+      String(agent.displayName     ?? '').toLowerCase().includes(lower) ||
+      String(agent.roleName        ?? '').toLowerCase().includes(lower) ||
+      String(agent.designationName ?? '').toLowerCase().includes(lower) ||
+      String(agent.employeeCode    ?? '').toLowerCase().includes(lower)
+    );
+  });
+
+  if (!matched.length) {
+    this.filteredTreeData = [];
+    this.searchLoading    = false;
+    this.messageService.add({
+      severity: 'info',
+      summary:  'No Results',
+      detail:   `No agents found for "${value}"`
+    });
+    this.cd.markForCheck();
+    return;
+  }
+
+  // ✅ wrap results under static BLM Admin root
+  const blmRoot: TreeNode = {
+    data: {
+      displayName:       'BLM Admin',
+      agentCode:         'BLM0000000000',
+      roleName:          'Admin',
+      is_active:         true,
+      agentID:           null,
+      ibnkCustomerNo:    '—',
+      ibnkShareFolioNum: '—',
+    },
+    children: matched.map(agent => ({
+      data:     agent,
+      children: [],
+      leaf:     false,
+      expanded: false,
+    })),
+    leaf:     false,
+    expanded: true,    // ✅ auto expand to show results
+  };
+
+  this.filteredTreeData = [blmRoot];
+  this.searchLoading    = false;
+  this.messageService.add({
+    severity: 'success',
+    summary:  'Search Results',
+    detail:   `Found ${matched.length} agent(s)`
+  });
+  this.cd.markForCheck();
+}
+
+// ── Clear search — restore full tree ─────────────────────────────────
+clearSearchGlobal(): void {
+  this.globalSearchValue = '';
+  this.searchActive      = false;
+  this.searchLoading     = false;
+  this.filteredTreeData  = [...this.treeData];   // restore original tree
+  this.cd.markForCheck();
+}
+  // new global search 
+
+  // 1. Change the trigger to a explicit click handler
+onSearchClick(): void {
+  const value = this.globalSearchValue?.trim();
+
+  if (!value) {
+    this.filteredTreeData = [...this.treeData];
+    return;
+  }
+
+  this.loading = true;
+  this.cd.markForCheck();
+
+  const upperValue = value.toUpperCase();
+  
+  // Clean leading zeros for numerical comparison consistency
+  const cleanSearchValue = upperValue.replace(/^0+/, '');
+
+  // Scan the flat array with loose/flexible normalization rules
+  const targetAgent = this.allAgentsFlat.find(agent => {
+    const agentCode = String(agent?.agentCode || '').toUpperCase();
+    
+    // Check all possible database property variations for customer numbers
+    const agentCustNo = String(agent?.ibnkCustomerNo || agent?.customerNo || agent?.customerNumber || '');
+    const cleanAgentCustNo = agentCustNo.replace(/^0+/, '');
+
+    return agentCode === upperValue || (cleanAgentCustNo && cleanAgentCustNo === cleanSearchValue);
+  });
+
+  if (!targetAgent) {
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Not Found',
+      detail: `No agent found matching code or customer number: "${value}"`
+    });
+    this.filteredTreeData = [];
+    this.loading = false;
+    this.cd.markForCheck();
+    return;
+  }
+
+  // Expand the lazy tree down to the matched node ID
+  this._expandPathToAgent(targetAgent.agentID);
+}
+// 3. Clear search filter back to standard root lookups
+clearSearch(): void {
+  this.globalSearchValue = '';
+  this.filteredTreeData = [...this.treeData];
+  this.cd.markForCheck();
+}
+
+// 4. Secure recursive lazy-expander targeting the matched agent ID
+private _expandPathToAgent(targetID: number): void {
+  this.agentService
+    .getChildren()
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: async (rootNodes) => {
+        this.treeData = this._toTreeNodes(rootNodes);
+        
+        // Asynchronously descend down through lazy-loaded nodes to find target
+        const found = await this._expandRecursive(this.treeData, targetID);
+        
+        if (!found) {
+          this.messageService.add({
+            severity: 'info',
+            summary: 'Notice',
+            detail: 'Agent exists but path layout could not be verified.'
+          });
+        }
+
+        this.filteredTreeData = [...this.treeData];
+        this.loading = false;
+        this.cd.markForCheck();
+      },
+      error: () => {
+        this.loading = false;
+        this.cd.markForCheck();
+      }
+    });
+}
 
 private _runSearch(): void {
   const value = this.globalSearchValue?.trim();
@@ -608,7 +799,7 @@ private _runSearch(): void {
   this.selectedParent = null;
   this._resetDialog();
 
-  // ✅ add null/undefined guard
+  //  add null/undefined guard
   this.agentListForParent = this._flattenTree(this.treeData)
     .filter(n =>
       n != null &&                    
@@ -911,41 +1102,68 @@ if (this.selectedParent?.data) {
   //  alert(JSON.stringify(payload, null, 2));
 
   this.agentService
-    .addAgent(payload)
-    .pipe(takeUntil(this.destroy$))
-    .subscribe({
-      next: (res: any) => {
-         if (this.form.value.isActive && res.data?.agentID) {
-      this.agentService.activateAgent(res.data.agentID)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe();
-    }
-        if (res.success) {
-          this.closeDialog();
-          this.messageService.add({ severity: 'success', summary: 'Success', detail: 'Agent created successfully' });
-          this.selectedParent ? this._reloadChildren(this.selectedParent) : this._loadRoot();
-            this._loadAllAgentsWithDetails();  //refreshDuplicateStaffcode  
+  .addAgent(payload)
+  .pipe(takeUntil(this.destroy$))
+  .subscribe({
+    next: (res: any) => {
+      console.log('Create response:', res);  //  check in production
+
+      if (res.success) {
+        // ✅ activate only if isActive toggle is true
+        if (this.form.value.isActive && res.data?.agentID) {
+          this.agentService.activateAgent(res.data.agentID)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next:  (r) => console.log('Activate response:', r),
+              error: (e) => console.warn('Activate failed:', e)
+            });
         }
-        this.loading = false;
-      },
-      error: (err) => {
+
         this.closeDialog();
-
-        // ✅ Show actual backend message in toast
-        const detail =
-          err?.error?.message
-          ?? err?.error?.error
-          ?? err?.error
-          ?? 'Failed to create agent';
-
         this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: String(detail)
+          severity: 'success',
+          summary:  'Success',
+          detail:   'Agent created successfully'
         });
-        this.loading = false;
-      },
-    });
+        this.selectedParent
+          ? this._reloadChildren(this.selectedParent)
+          : this._loadRoot();
+        this._loadAllAgentsWithDetails();
+
+      } else {
+        // ✅ API returned 200 but success = false
+        console.warn('res.success is false:', res);
+        this.messageService.add({
+          severity: 'warn',
+          summary:  'Warning',
+          detail:   res?.message ?? 'Agent not created'
+        });
+      }
+      this.loading = false;
+    },
+    error: (err) => {
+  console.error('Create agent error:', err.status, err.error);
+
+  // ✅ specific 504 message
+  const detail =
+    err.status === 504
+      ? 'Server is taking too long to respond — please try again'
+      : err?.error?.message
+        ?? err?.error?.error
+        ?? err?.error
+        ?? 'Failed to create agent';
+
+  this.messageService.add({
+    severity: 'error',
+    summary:  `Error ${err.status}`,
+    detail:   String(detail)
+  });
+  this.loading = false;
+}
+  });
+
+
+    
 }
 
   private _reloadChildren(node: TreeNode): void {
@@ -1068,8 +1286,7 @@ onNodeSelect(event: any) {
 // end 
 // change parent popup 
 openChangeParentDialog(rowData: any, node: any): void {
-  this.selectedNode = node; // Pass the whole node from the UI action
-  // alert('rowData:'+ JSON.stringify(rowData)); alert('agentID:'+ rowData?.agentID);
+  this.selectedNode = node; 
   this.changeParentVisible  = true;
   this.selectedAgentDetail  = null;
   this.selectedNewParentID  = null;
@@ -1081,13 +1298,13 @@ openChangeParentDialog(rowData: any, node: any): void {
     .pipe(takeUntil(this.destroy$))
     .subscribe({
       next: (res) => {
-        this.selectedAgentDetail ={
-  ...rowData,
-  ...res
-};
+        this.selectedAgentDetail = {
+          ...rowData,
+          ...res,
+          agentID: rowData.agentID 
+        };
         this.changeParentLoading = false;
         this.cd.markForCheck();
-        // alert(JSON.stringify(this.selectedAgentDetail));
       },
       error: () => {
         this.changeParentLoading = false;
@@ -1100,11 +1317,58 @@ openChangeParentDialog(rowData: any, node: any): void {
       }
     });
 
-  // Build flat agent list for parent dropdown (exclude self)
-  this.agentListForParent = this._flattenTree(this.treeData)
-    .filter(a => a.agentID !== rowData.agentID  &&  a.designationID !== 1    );
+  // Extract the actual underlying PrimeNG TreeNode
+  const actualTreeNode = node?.node ? node.node : node;
+
+  //  OPTIMIZATION: Linear Flatten & Filter in a SINGLE step
+  // Pass the target rowData to exclude both the agent and its descendants automatically
+  this.agentListForParent = this._flattenAndFilterTree(this.treeData, rowData.agentID, actualTreeNode);
 }
 
+/**
+ * High-Performance Iterative Flattening & Filtering
+ * Runs in O(N) linear time and uses an iterative stack to prevent stack overflows on deep trees.
+ */
+private _flattenAndFilterTree(nodes: TreeNode[], currentAgentID: number, currentRowNode: any): any[] {
+  const result: any[] = [];
+  if (!nodes || nodes.length === 0) return result;
+
+  // Use a fast array-based stack for iterative DFS traversal
+  const stack: TreeNode[] = [...nodes];
+
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    const data = node.data;
+
+    if (data) {
+      // 1. Handle Static Root Check: If it's BLM Admin (agentID is null/undefined), assign it a safe value like 0 or handle explicitly
+      const isStaticRoot = (data.agentID === null || data.agentID === undefined) && data.agentCode === 'BLM0000000000';
+      const normalizedAgentID = isStaticRoot ? 0 : data.agentID;
+
+      // 2. Optimized Filter Rules applied inline during traversal:
+      if (
+        normalizedAgentID !== currentAgentID &&          // Exclude self
+        data.designationID !== 1 &&                     // Exclude Restricted Designation
+        !this.isDescendant(currentRowNode, data.agentID) // Exclude descendants to prevent circular loops
+      ) {
+        // Map data safely for dropdown compatibility
+        result.push({
+          ...data,
+          agentID: normalizedAgentID // Ensures the dropdown passes 0 for BLM Admin instead of breaking on null
+        });
+      }
+    }
+
+    // Push children onto stack for traversal (if any exist)
+    if (node.children && node.children.length > 0) {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        stack.push(node.children[i]);
+      }
+    }
+  }
+
+  return result;
+}
 // Flatten tree to a flat array for the dropdown
 private _flattenTree(nodes: TreeNode[]): any[] {
   return nodes.reduce<any[]>((acc, node) => {
@@ -1143,80 +1407,121 @@ isDescendant(node: any, targetID: number): boolean {
 }
 // end helper method 
 updateParent(): void {
-  const agentToMove = this.selectedAgentDetail;
+  const agentID = this.selectedAgentDetail?.agentID
+               ?? this.selectedNode?.node?.data?.agentID;
   const targetParentID = this.selectedNewParentID;
 
-  // 1. Validations
-  if (!agentToMove || !targetParentID) {
-    this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Please select an agent and a new parent' });
-    return;
-  }
+  const numericAgentID        = (agentID !== null && agentID !== undefined)
+                                  ? Number(agentID) : null;
+  const numericTargetParentID = (targetParentID !== null && targetParentID !== undefined)
+                                  ? Number(targetParentID) : null;
 
-  if (targetParentID === agentToMove.agentID) {
-    this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Cannot assign agent as its own parent' });
-    return;
-  }
-
-  // Prevent moving a parent into its own child (Circular Reference)
-  if (this.isDescendant(this.selectedNode, targetParentID)) {
+  // ✅ Fixed validation — allow 0 (BLM Admin root)
+  if (numericAgentID === null || numericAgentID === undefined) {
     this.messageService.add({
-      severity: 'error',
-      summary: 'Circular Reference',
-      detail: 'Cannot move an agent under one of its own descendants!'
+      severity: 'warn',
+      summary:  'Validation Warning',
+      detail:   'Please select a valid agent'
     });
     return;
   }
 
-  // 2. Start Loading State
+  // ✅ allow 0 as valid parent (BLM Admin) — only block undefined/null
+  if (numericTargetParentID === null || numericTargetParentID === undefined) {
+    this.messageService.add({
+      severity: 'warn',
+      summary:  'Validation Warning',
+      detail:   'Please select a new parent'
+    });
+    return;
+  }
+
+  if (numericTargetParentID === numericAgentID) {
+    this.messageService.add({
+      severity: 'error',
+      summary:  'Validation Error',
+      detail:   'Cannot assign an agent as its own parent'
+    });
+    return;
+  }
+
+  // circular reference check — skip for BLM Admin (0)
+  if (numericTargetParentID !== 0) {
+    const actualTreeNode = this.selectedNode?.node
+                         ? this.selectedNode.node
+                         : this.selectedNode;
+    if (this.isDescendant(actualTreeNode, numericTargetParentID)) {
+      this.messageService.add({
+        severity: 'error',
+        summary:  'Circular Reference',
+        detail:   'Cannot move an agent under one of its own descendants!'
+      });
+      return;
+    }
+  }
+
   this.updateParentLoading = true;
+  this.updateParentFailed  = false;
   this.cd.markForCheck();
-  // alert(agentToMove.agentID);
-  // alert(targetParentID);
-  // 3. API Call
+
+  // ✅ Key logic:
+  // numericTargetParentID === 0  → BLM Admin → send null to DB (root level)
+  // numericTargetParentID > 0    → real agent → send actual ID
+  const finalParentIDPayload = numericTargetParentID === 0
+    ? null
+    : numericTargetParentID;
+
+  console.log('agentID:', numericAgentID);
+  console.log('newParentID:', finalParentIDPayload, '(0 means root)');
+
   this.agentService
-    .updateParent(agentToMove.agentID, targetParentID)
+    .updateParent(numericAgentID, finalParentIDPayload as any)
     .pipe(takeUntil(this.destroy$))
     .subscribe({
       next: (res: any) => {
-        // Based on your JSON: res.success is the top-level boolean
-        if (res.success) {
+        if (res && res.success && res.data?.success === true) {
           this.messageService.add({
             severity: 'success',
-            summary: 'Success',
-            detail: res.message || 'Agent parent updated successfully'
+            summary:  'Success',
+            detail:   res.message || 'Agent parent updated successfully'
           });
           this.closeChangeParentDialog();
-          this._loadRoot(); // Refresh the tree
+          this.selectedNode        = null;
+          this.selectedAgentDetail = null;
+          this._loadRoot();
+
         } else {
+          this.updateParentFailed = true;
           this.messageService.add({
-            severity: 'warn',
-            summary: 'Warning',
-            detail: res.message ?? 'Update was not successful'
+            severity: 'error',
+            summary:  'Update Failed',
+            detail:   res?.message ?? res?.data?.message
+                   ?? 'Database rejected the parent modification.'
           });
         }
-
-        // Set to false, not true!
         this.updateParentLoading = false;
         this.cd.markForCheck();
       },
       error: (err) => {
-        this.updateParentFailed = true;
+        this.updateParentFailed  = true;
         this.updateParentLoading = false;
-        
         console.error('UpdateParent error:', err);
 
-        const detail =
-          err?.name === 'TimeoutError' ? 'Request timed out — server is taking too long.' :
-          err?.status === 504 ? 'Server gateway timeout — please try again.' :
-          err?.status === 0 ? 'No connection — check your network.' :
-          err?.error?.message ?? 'Failed to update parent';
+        const errorDetail =
+          err?.name === 'TimeoutError'
+            ? 'Request timed out — server is taking too long.' :
+          err?.status === 400
+            ? 'Bad Request — server rejected the parent ID.' :
+          err?.status === 504
+            ? 'Gateway Timeout — check server connection.' :
+          err?.error?.message ?? err?.message
+            ?? 'An unknown error occurred.';
 
         this.messageService.add({
           severity: 'error',
-          summary: `Error ${err.status || ''}`,
-          detail
+          summary:  `Error ${err.status || ''}`,
+          detail:   String(errorDetail)
         });
-
         this.cd.markForCheck();
       }
     });
@@ -1224,7 +1529,7 @@ updateParent(): void {
 // end parent update 
 
 // get user login 
-// ── Permissions ───────────────────────────────────────────────────────
+// ── Permissions ────
 get isAdmin(): boolean {
   return this.authService.isAdmin();
 }
@@ -1929,6 +2234,8 @@ formatLocalDate(date: Date): string {
 // code for Update mapped branches of member 
 
 // ── Open dialog ───────────────────────────────────────────────────────
+
+
 openUpdateBranchDialog(rowData: any, node: any): void {
   this.updateBranchVisible    = true;
   this.updateBranchLoading    = true;
@@ -1937,29 +2244,61 @@ openUpdateBranchDialog(rowData: any, node: any): void {
   this.availableBranches      = [];
   this.cd.markForCheck();
 
-  // ✅ fetch agent details to get current branches
+  // 1. Fetch target agent details to prefill current branches
   this.agentService.getAgentByID(rowData.agentID)
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: (res) => {
+      next: async (res) => {
         this.selectedAgentForBranch = { ...rowData, ...res };
 
-        // ✅ prefill current branch selections
-        this.selectedBranchIDs = res.branches?.map((b: any) =>
-          typeof b === 'number' ? b : b.branchID ?? b.id
-        ) ?? [];
+        // Safe extraction of the targeted agent's current branches
+        const targetBranches = res?.branches || res?.branchIDs || rowData?.branches;
+        this.selectedBranchIDs = Array.isArray(targetBranches)
+          ? targetBranches.map((b: any) => typeof b === 'number' ? b : (b?.branchID ?? b?.id))
+          : [];
 
-        // ✅ get parent node to filter branches
+        // 2. Identify Parent Scope safely
         const parentNode = node?.parent;
-        const parentBranchIDs: number[] = parentNode?.data?.branches?.map(
-          (b: any) => typeof b === 'number' ? b : b.branchID ?? b.id
-        ) ?? [];
+        const parentData = parentNode?.data;
+        
+        // Define if the parent is our static top-level BLM Admin anchor
+        const isParentStaticRoot = !parentNode || (parentData && 
+          (parentData.agentID === null || parentData.agentID === undefined) && 
+          parentData.agentCode === 'BLM0000000000');
 
-        // ✅ filter branches based on parent
-        // if parent has no branches — allow all
-        if (!parentBranchIDs.length) {
-          this.availableBranches = this.branches;
+        let parentBranchIDs: number[] = [];
+
+        // If the parent is a real agent node, let's establish its active boundaries
+        if (parentData && !isParentStaticRoot) {
+          let rawParentBranches = parentData.branches || parentData.branchIDs;
+
+          // ⚡ THE FIX: If the parent data in the UI doesn't have branch records, 
+          // fetch its comprehensive profile directly from the API service
+          if (!rawParentBranches || (Array.isArray(rawParentBranches) && rawParentBranches.length === 0)) {
+            try {
+              const fullParentDetails = await firstValueFrom(
+                this.agentService.getAgentByID(parentData.agentID)
+              );
+              rawParentBranches = fullParentDetails?.branches || fullParentDetails?.branchIDs;
+            } catch (apiErr) {
+              console.warn(`Could not fetch actual data parameters for parent agent ID ${parentData.agentID}:`, apiErr);
+            }
+          }
+
+          if (Array.isArray(rawParentBranches)) {
+            parentBranchIDs = rawParentBranches.map((b: any) => 
+              typeof b === 'number' ? b : (b?.branchID ?? b?.id)
+            ).filter(id => id !== undefined && id !== null);
+          }
+        }
+
+        // 3. Apply parental boundary matching to compute available branches
+        if (isParentStaticRoot || !parentBranchIDs.length) {
+          // Fall back to showing all global system branches if parent is root 
+          // or if the parent has no explicit mapping restrictions found
+          this.availableBranches = [...this.branches];
         } else {
+          // Strict filtering criteria based on the verified parent layout limits
           this.availableBranches = this.branches.filter(b =>
             parentBranchIDs.includes(b.branchID)
           );
@@ -1968,7 +2307,8 @@ openUpdateBranchDialog(rowData: any, node: any): void {
         this.updateBranchLoading = false;
         this.cd.markForCheck();
       },
-      error: () => {
+      error: (err) => {
+        console.error('Failed to load agent layout context:', err);
         this.updateBranchLoading = false;
         this.messageService.add({
           severity: 'error',
@@ -1979,7 +2319,6 @@ openUpdateBranchDialog(rowData: any, node: any): void {
       }
     });
 }
-
 // ── Save updated branches ─────────────────────────────────────────────
 saveUpdateBranch(): void {
   if (!this.selectedBranchIDs.length) {
@@ -2124,51 +2463,58 @@ onUpdateEmpCodeBlur(): void {
 
 // loadAllDataChildrenForStaffcodeValidation
 // ── Step 1: get all agent IDs from tree ───────────────────────────────
-private _loadAllAgentsWithDetails(): void {
-  this.agentService.getChildren()
-    .pipe(takeUntil(this.destroy$))
-    .subscribe(async (roots) => {
-      const allIDs: number[] = [];
-      await this._collectAllIDs(roots, allIDs);
+// private _loadAllAgentsWithDetails(): void {
+//   this.agentService.getChildren()
+//     .pipe(takeUntil(this.destroy$))
+//     .subscribe(async (roots) => {
+//       const allIDs: number[] = [];
+//       await this._collectAllIDs(roots, allIDs);
 
-      // ── Step 2: fetch details for each agent ──────────────────────
-      const details: any[] = [];
-      for (const id of allIDs) {
-        try {
-          const detail = await firstValueFrom(
-            this.agentService.getAgentByID(id)
-          );
-          if (detail) details.push(detail);
-        } catch {
-          // skip failed
-        }
-      }
+//       // ── Step 2: fetch details for each agent ──────────────────────
+//       const details: any[] = [];
+//       for (const id of allIDs) {
+//         try {
+//           const detail = await firstValueFrom(
+//             this.agentService.getAgentByID(id)
+//           );
+//           if (detail) details.push(detail);
+//         } catch {
+//           // skip failed
+//         }
+//       }
 
-      this.allAgentsFlat = details;
-      console.log('All agents with details:', this.allAgentsFlat.length);
-      this.cd.markForCheck();
-    });
-}
-
-// ── Recursively collect all agent IDs ─────────────────────────────────
-private async _collectAllIDs(
-  agents: any[],
-  result: number[]
-): Promise<void> {
-  for (const agent of agents) {
-    if (agent?.agentID) {
-      result.push(agent.agentID);
+//       this.allAgentsFlat = details;
+//       console.log('All agents with details:', this.allAgentsFlat.length);
+//       this.cd.markForCheck();
+//     });
+// }
+private async _loadAllAgentsWithDetails(): Promise<void> {
+  try {
+    const roots = await firstValueFrom(this.agentService.getChildren());
+    const all: any[] = [];
+    for (const r of roots) {
+      await this['_collectAll'](r, all);
     }
-    try {
-      const children = await firstValueFrom(
-        this.agentService.getChildren(agent.agentID)
-      );
-      if (children?.length) {
-        await this._collectAllIDs(children, result);
-      }
-    } catch {
-      console.log();
-     }
+    this.allAgentsFlat = all;
+    console.log('All agents loaded:', all.length);
+    this.cd.markForCheck();
+  } catch {
+    console.warn('Failed to load all agents');
   }
+}
+// ── Recursively collect all agent IDs ─────────────────────────────────
+private async _collectAll(agent: any, result: any[]): Promise<void> {
+  // ✅ skip static BLM Admin root
+  if (agent?.agentID === null || agent?.agentCode === 'BLM0000000000') return;
+
+  result.push(agent);
+  try {
+    const children = await firstValueFrom(
+      this.agentService.getChildren(agent.agentID)
+    );
+    for (const child of children) {
+      await this._collectAll(child, result);
+    }
+  } catch {  console.log("Search Catch") }
 }
 }

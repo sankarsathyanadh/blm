@@ -9,108 +9,239 @@ import { Agent } from './agent';
 export class ExcelReportService {
   private readonly agentService = inject(Agent);
 
-  // ── Public entry point ────────────────────────────────────────────────
-  async downloadAgentExcel(): Promise<void> {
-    // 1. fetch all root agents
-    const roots = await firstValueFrom(this.agentService.getChildren());
+  // ── Public entry point ──────
+async downloadAgentExcel(): Promise<void> {
+  // Step 1: BFS to collect ALL agents level by level
+  const allAgents = await this._collectAllAgentsBFS();
 
-    // 2. collect full subtree with details
-    const rows: any[] = [];
-    for (const agent of roots) {
-      await this._collectSubtree(agent, 0, rows);
-    }
+  // Step 2: Batch-fetch all details in parallel
+  const detailMap = await this._batchFetchDetails(allAgents);
 
-    // 3. generate Excel
-    this._generateExcel(rows);
+  // Step 3: Batch-fetch all beneficiary accounts in parallel
+  const accountMap = await this._batchFetchAccounts(detailMap);
+
+  // Step 4: Assemble rows
+  const rows = allAgents.map(({ agent, level }) => {
+    const detail  = detailMap.get(agent.agentID) ?? {};
+    const account = accountMap.get(detail.ibnkCustomerNo) ?? { accountNo: '—', ifscCode: '—' };
+    return { ...agent, ...detail, level, ...account };
+  });
+
+  this._generateExcel(rows);
+}
+
+// ── BFS: collect agents level by level ──────────────────────────────
+private async _collectAllAgentsBFS(): Promise<{ agent: any; level: number }[]> {
+  const result: { agent: any; level: number }[] = [];
+
+  // Fetch root agents
+  let currentLevel = await firstValueFrom(this.agentService.getChildren());
+  let depth = 0;
+
+  while (currentLevel.length > 0) {
+    // Add all agents at this level to result
+    currentLevel.forEach(agent => result.push({ agent, level: depth }));
+
+    // Fetch ALL children for this entire level in parallel
+    const childResults = await Promise.all(
+      currentLevel.map(agent =>
+        firstValueFrom(this.agentService.getChildren(agent.agentID))
+          .catch(() => [] as any[])
+      )
+    );
+
+    // Flatten children for next iteration
+    currentLevel = childResults.flat();
+    depth++;
   }
 
-  // ── Recursively collect all agents ───────────────────────────────────
-  private async _collectSubtree(
-    agent: any,
-    level: number,
-    rows: any[]
-  ): Promise<void> {
-    try {
-      // fetch full details for each agent
-      const detail = await firstValueFrom(
-        this.agentService.getAgentByID(agent.agentID)
-      );
-      rows.push({ ...agent, ...detail, level });
+  return result;
+}
 
-      // fetch children
-      const children = await firstValueFrom(
-        this.agentService.getChildren(agent.agentID)
-      );
-      if (children?.length) {
-        for (const child of children) {
-          await this._collectSubtree(child, level + 1, rows);
+// ── Batch fetch agent details ────────────────────────────────────────
+private async _batchFetchDetails(
+  allAgents: { agent: any; level: number }[]
+): Promise<Map<number, any>> {
+  const CHUNK = 20; // tune based on your API rate limit
+  const map   = new Map<number, any>();
+
+  for (let i = 0; i < allAgents.length; i += CHUNK) {
+    const chunk = allAgents.slice(i, i + CHUNK);
+    const results = await Promise.all(
+      chunk.map(({ agent }) =>
+        firstValueFrom(this.agentService.getAgentByID(agent.agentID))
+          .catch(() => null)
+      )
+    );
+    results.forEach((detail, idx) => {
+      if (detail) map.set(chunk[idx].agent.agentID, detail);
+    });
+  }
+
+  return map;
+}
+
+// ── Batch fetch beneficiary accounts ────────────────────────────────
+private async _batchFetchAccounts(
+  detailMap: Map<number, any>
+): Promise<Map<string, { accountNo: string; ifscCode: string }>> {
+  const map         = new Map<string, { accountNo: string; ifscCode: string }>();
+  const customerNos = [...new Set(
+    [...detailMap.values()]
+      .map(d => d?.ibnkCustomerNo)
+      .filter(Boolean)
+  )];
+
+  const CHUNK = 20;
+  for (let i = 0; i < customerNos.length; i += CHUNK) {
+    const chunk = customerNos.slice(i, i + CHUNK);
+    const results = await Promise.all(
+      chunk.map(no =>
+        firstValueFrom(this.agentService.getBeneficiaryAccounts(no))
+          .catch(() => null)
+      )
+    );
+
+    results.forEach((accounts, idx) => {
+      const primary = accounts?.find((a: any) => a.isActive ?? true) ?? accounts?.[0];
+      map.set(chunk[idx], {
+        accountNo: primary?.accountNumber ?? primary?.account_number ?? primary?.accNo ?? '—',
+        ifscCode:  primary?.ifscCode ?? primary?.ifsc ?? primary?.ifsc_code ?? '—',
+      });
+    });
+  }
+
+  return map;
+}
+  // ── Recursively collect all agents ─────────────
+private async _collectSubtree(
+  agent: any,
+  level: number,
+  rows: any[]
+): Promise<void> {
+  try {
+    // 1. Start fetching both details and children simultaneously (Parallel)
+    const [detail, children] = await Promise.all([
+      firstValueFrom(this.agentService.getAgentByID(agent.agentID)),
+      firstValueFrom(this.agentService.getChildren(agent.agentID))
+    ]);
+
+    let accountNo = '—';
+    let ifscCode  = '—';
+
+    // 2. Fetch beneficiary accounts if customer number exists
+    if (detail?.ibnkCustomerNo) {
+      try {
+        const accounts = await firstValueFrom(
+          this.agentService.getBeneficiaryAccounts(detail.ibnkCustomerNo)
+        );
+
+        const primary = accounts?.find((a: any) => a.isActive ?? true) ?? accounts?.[0];
+
+        if (primary) {
+          accountNo = primary.accountNumber ?? primary.account_number ?? primary.accNo ?? '—';
+          ifscCode  = primary.ifscCode ?? primary.ifsc ?? primary.ifsc_code ?? '—';
         }
+      } catch {
+        // Fallback handled
       }
-    } catch {
-      // skip failed agent
-      rows.push({ ...agent, level });
     }
+
+    // Push current row data
+    rows.push({ ...agent, ...detail, level, accountNo, ifscCode });
+
+    // 3. Process children concurrently rather than sequentially
+    if (children?.length) {
+      await Promise.all(
+        children.map((child: any) => this._collectSubtree(child, level + 1, rows))
+      );
+    }
+  } catch {
+    rows.push({ ...agent, level, accountNo: '—', ifscCode: '—' });
   }
+}
 
-  // ── Generate Excel file ───────────────────────────────────────────────
-  private _generateExcel(rows: any[]): void {
-    const wb = XLSX.utils.book_new();
+  // ── Generate Excel file ─────
+private _generateExcel(rows: any[]): void {
+  const wb = XLSX.utils.book_new();
 
-    // ── Sheet 1: Agent List ───────────────────────────────────────────
-    const data = rows.map((r, i) => ({
-      '#':                      i + 1,
-      'Level':                  r.level === 0 ? 'Root' : `L${r.level}`,
-      'Agent Name':             this._indent(r.displayName, r.level),
-      'Agent Code':             r.agentCode             ?? '—',
-      'Customer Number':        r.ibnkCustomerNo        ?? '—',
-      'Role':                   r.roleName              ?? '—',
-      'Designation':            r.designationName       ?? '—',
-      'Designation Grade':      r.designationGrade      ?? '—',
-      'Staff Designation':      r.employeeDesignationName ?? '—',
-      'Staff Desig. Grade':     r.employeeDesignationGrade ?? '—',
-      'Staff Code':             r.employeeCode          ?? '—',
-      'Branches':               this._resolveBranches(r.branches),
-      'Joining Date':           r.joiningDate
-                                  ? new Date(r.joiningDate).toLocaleDateString('en-GB')
-                                  : '—',
-      'Status':                 r.isActive ? 'Active' : 'Inactive',
-    }));
+  const data = rows.map((r, i) => ({
+    '#':                      i + 1,
+    'Level':                  r.level === 0 ? 'Root' : `L${r.level}`,
+    'Agent Name':             this._indent(r.displayName, r.level),
+    'Agent Code':             r.agentCode              ?? '—',
+    'Customer Number':        r.ibnkCustomerNo         ?? '—',
+    'Role':                   r.roleName               ?? '—',
+    'Designation':            r.designationName        ?? '—',
+    'Designation Grade':      r.designationGrade       ?? '—',
+    'Staff Designation':      r.employeeDesignationName ?? '—',
+    'Staff Desig. Grade':     r.employeeDesignationGrade ?? '—',
+    'Staff Code':             r.employeeCode           ?? '—',
+    'Branches':               this._resolveBranches(r.branches),
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    // 'Joining Date':           r.joiningDate
+    //                             ? new Date(r.joiningDate)
+    //                                 .toLocaleDateString('en-GB')
+    //                             : '—',
+     'Joining Date':           this._formatDate(r.joiningDate), 
+    'Status':                 r.isActive ? 'Active' : 'Inactive',
+    'Account Number':         r.accountNo              ?? '—',  // 
+    'IFSC Code':              r.ifscCode               ?? '—',  // 
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+    // alert(ws);
 
-    // ── Column widths ─────────────────────────────────────────────────
-    ws['!cols'] = [
-      { wch: 5  },  // #
-      { wch: 8  },  // Level
-      { wch: 30 },  // Agent Name
-      { wch: 18 },  // Agent Code
-      { wch: 18 },  // Customer Number
-      { wch: 15 },  // Role
-      { wch: 25 },  // Designation
-      { wch: 18 },  // Designation Grade
-      { wch: 25 },  // Staff Designation
-      { wch: 18 },  // Staff Desig. Grade
-      { wch: 14 },  // Staff Code
-      { wch: 30 },  // Branches
-      { wch: 14 },  // Joining Date
-      { wch: 10 },  // Status
-    ];
+  // ✅ updated column widths — add 2 new columns
+  ws['!cols'] = [
+    { wch: 5  },  // #
+    { wch: 8  },  // Level
+    { wch: 30 },  // Agent Name
+    { wch: 18 },  // Agent Code
+    { wch: 18 },  // Customer Number
+    { wch: 15 },  // Role
+    { wch: 25 },  // Designation
+    { wch: 18 },  // Designation Grade
+    { wch: 25 },  // Staff Designation
+    { wch: 18 },  // Staff Desig. Grade
+    { wch: 14 },  // Staff Code
+    { wch: 30 },  // Branches
+    { wch: 14 },  // Joining Date
+    { wch: 10 },  // Status
+    { wch: 20 },  // Account Number ✅
+    { wch: 15 },  // IFSC Code ✅
+  ];
 
-    // ── Style header row ──────────────────────────────────────────────
-    this._styleHeader(ws, data.length);
+  this._styleHeader(ws, data.length);
+  XLSX.utils.book_append_sheet(wb, ws, 'Agent List');
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Agent List');
+  // Summary sheet
+  const summaryWs = this._buildSummarySheet(rows);
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
-    // ── Sheet 2: Summary ──────────────────────────────────────────────
-    const summaryWs = this._buildSummarySheet(rows);
-    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+  const fileName = `Agent_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+}
+private _formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
 
-    // ── Save ──────────────────────────────────────────────────────────
-    const fileName = `Agent_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+  try {
+    const d = new Date(dateStr);
+
+    // ✅ check valid date
+    if (isNaN(d.getTime())) return '—';
+
+    // ✅ manual DD/MM/YYYY — consistent across all browsers/servers
+    const dd   = String(d.getUTCDate()).padStart(2, '0');
+    const mm   = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = d.getUTCFullYear();
+
+    return `${dd}/${mm}/${yyyy}`;   // e.g. 22/12/2026
+
+  } catch {
+    return '—';
   }
-
-  // ── Style header row ──────────────────────────────────────────────────
+}
+  // ── Style header row ─────
   private _styleHeader(ws: XLSX.WorkSheet, dataLen: number): void {
     const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
 
@@ -160,7 +291,7 @@ export class ExcelReportService {
     }
   }
 
-  // ── Summary sheet ─────────────────────────────────────────────────────
+  // ── Summary sheet ────
   private _buildSummarySheet(rows: any[]): XLSX.WorkSheet {
     const total    = rows.length;
     const active   = rows.filter(r => r.isActive).length;

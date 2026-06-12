@@ -31,10 +31,16 @@ import { Auth } from '../../services/auth';
               <span>Dashboard</span>
             }
           </div> -->
+              <div class="sidebar-item" routerLink="/AgentDashboard" routerLinkActive="active">
+            <i class="pi pi-th-large"></i>
+            @if (!isCollapsed()) {
+              <span>Agent Dashboard</span>
+            }
+          </div>
            <div class="sidebar-item" routerLink="/networktree" routerLinkActive="active">
             <i class="pi pi-sitemap"></i>
             @if (!isCollapsed()) {
-              <span class="d-none d-md-block" >MLM Agents</span>
+              <span class="d-none d-md-block" >BLM Agents</span>
             }
           </div>
           <!-- <div class="sidebar-item" routerLink="/network" routerLinkActive="active">
@@ -55,12 +61,7 @@ import { Auth } from '../../services/auth';
               <span>NetworkUser</span>
             }
           </div> -->
-           <div class="sidebar-item" routerLink="/AgentDashboard" routerLinkActive="active">
-            <i class="pi pi-users"></i>
-            @if (!isCollapsed()) {
-              <span>Agent Dashboard</span>
-            }
-          </div>
+       
           @if (isAdmin) {
           <div class="sidebar-item" routerLink="/designation" routerLinkActive="active">
             <i class="pi pi-users"></i>

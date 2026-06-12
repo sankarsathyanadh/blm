@@ -107,209 +107,181 @@
   </div>
 
   <!-- ── Search bar ──────── -->
-  <div class="row mb-2">
-    <div class="col-md-5">
-      <p-iconField iconPosition="left">
-        <p-inputIcon styleClass="pi pi-search" />
-        <input pInputText [(ngModel)]="globalSearchValue" (input)="onSearchInput()"
-          placeholder="Search Agent Code or Customer No" class="w-100" />
-      </p-iconField>
-    </div>
+ <div class="row mb-2">
+ <div class="col-md-6">
+    
+    <p-inputGroup>
+      
+      <!-- Search Icon -->
+      <!-- <p-inputGroupAddon>
+        <i class="pi pi-search"></i>
+      </p-inputGroupAddon> -->
+
+      <!-- Search Input -->
+      <input
+        type="text"
+        pInputText
+        [(ngModel)]="globalSearchValue"
+        (keyup.enter)="searchAgents()"
+        placeholder="Search Agent Code, Name or Customer No" />
+
+     
+
+      <!-- Search Button -->
+      <button
+        pButton
+        type="button"
+        label="Search"
+        icon="pi pi-search"
+        severity="success"
+
+        class="d-flex align-items-center"
+        [loading]="searchLoading"
+         pTooltip="Click to Search"
+        tooltipPosition="bottom"
+        (click)="searchAgents()">
+      </button>
+       <!-- Clear Button -->
+      @if (globalSearchValue) {
+        <button
+          pButton
+          type="button"
+          icon="pi pi-times"
+          severity="secondary"
+           pTooltip="Clear Search"
+          tooltipPosition="bottom"
+          text
+          (click)="clearSearchGlobal()">
+        </button>
+      }
+
+    </p-inputGroup>
+
   </div>
 
-  <!-- ── Tree table  -->
-  <div class="card p-2 shadow-sm bg-light">
-    <div class="table-wrapper">
-      <p-treeTable [value]="filteredTreeData" [lazy]="true" [loading]="loading" (onNodeExpand)="loadChildren($event)"
-        selectionMode="single" [(selection)]="selectedNode" (onNodeSelect)="onNodeSelect($event)"  [scrollable]="true"  scrollHeight="calc(100vh - 260px)"  class="custom-tree-table ">
+  <!-- <div class="col-md-auto d-flex gap-2">
 
-        <ng-template pTemplate="header">
-          <tr>
-            <th class="  no_wrap_cell col-name">Name</th>
-            <th>Code</th>
-            <th>Customer No</th>
-            <!-- <th class="col-folio" >Folio</th> -->
-            <!-- <th class="col-branch" >Branch</th> -->
-            <th>Role</th>
-            <!-- <th>Branch</th> -->
-            <th>Designation</th>
-            <th class="col-status w_12P">Status</th>
-
-            <th class="col-action">Action</th>
-          </tr>
-        </ng-template>
-
-        <ng-template pTemplate="body" let-rowNode let-rowData="rowData">
-          <tr [ngClass]="'level-' + rowNode.level">
-
-            <!-- Name + toggler -->
-            <td class="col-name no-wrap no_wrap_cell" data-label="Name">
-              @if (!rowNode.node.leaf) {
-              <p-treeTableToggler [rowNode]="rowNode" />
-              }
-              @if (rowNode.node.loading) {
-              <i class="pi pi-spin pi-spinner text-primary ms-1"></i>
-              }
-              <span class="ms-2">{{ rowData.displayName }} </span>
-              <!-- {{rowData.agentID}}   -->
-            </td>
-
-            <td data-label="Code">{{ rowData.agentCode }}</td>
-            <td data-label="Customer No">{{ rowData.ibnkCustomerNo }}</td>
-            <!-- <td class="col-folio" data-label="Folio">{{ rowData.ibnkShareFolioNum }}</td> -->
-            <!-- <td class="col-branch" data-label="Branch">{{ rowData| json }}</td> -->
-            <td data-label="Role">{{ rowData.roleName }}</td>
-            <!-- <td class="col-hide-tablet" data-label="Branch">
-               {{ rowData.branchName ?? '—' }}
-            </td> -->
-            <!-- Status badge -->
-            <!-- <td class="col-hide-tablet" data-label="Designation">
-  {{ getDesignationName(rowData.designationID) }} 
-</td> -->
-            <td class="col-hide-tablet" data-label="Designation">
-              {{ rowData.designationCode }}
-              <!-- {{ rowData.grade }} -->
-              <!-- ({{ rowNode.node.data.employeeDesignationCode  }} - G{{ rowData.designationCode }})
-      ({{ rowNode.node.data.employeeDesignationCode  }} - G{{ rowData.grade }}) -->
-            </td>
-            <td data-label="Status" class="w_12P">
-              <span [ngClass]="rowData.isActive  ? 'text-success' : 'text-danger'" class="small ">
-                {{ rowData.isActive ? 'Active' : 'Inactive' }}
-              </span>
-              <!-- @if (statusLoadingMap[rowData.agentID]) {
-    <i class="pi pi-spin pi-spinner" style="font-size:1rem"></i>
-  } @else {
     <p-button
-      [label]="rowData.isActive ? 'Active' : 'Inactive'"
-      [icon]="rowData.isActive ? 'pi pi-check-circle' : 'pi pi-ban'"
-      [severity]="rowData.isActive ? 'success' : 'danger'"
-      [pTooltip]="rowData.isActive ? 'Click to Deactivate' : 'Click to Activate'"
-      tooltipPosition="top"
-      size="small"
-      [text]="true"
-      [raised]="true"
-      (click)="toggleStatus(rowData)" />
-  } -->
+      label="Search"
+      icon="pi pi-search"
+      severity="info"
+      [loading]="searchLoading"
+      (onClick)="searchAgents()" />
 
-            </td>
-            <!-- <td>
-              {{ rowData | json   }} 
-          </td> -->
-
-
-            <!-- Add child action -->
-            <td data-label="Action" class="d-flex gap-1">
-
-
-              @if (rowData.designationCode !== 'FO') {
-              <p-button icon="pi pi-plus" [text]="true" severity="info" size="small"
-                (click)="openAddDialog(rowNode.node)" />
-              }
-
-              <span>
-                <!-- @if (pdfLoadingMap[rowData.agentID]) {
-
-        <i class="pi pi-spin pi-spinner text-danger" style="font-size: 1.1rem"></i>
-      } @else { -->
-                <p-button icon="pi pi-file-pdf" [text]="true" severity="danger" size="small"
-                  pTooltip="Download Agent Report" tooltipPosition="left" (click)="downloadPdf(rowData)" />
-                <!-- } -->
-              </span>
-              <!-- (click)="openChangeParentDialog(rowData)" -->
-              <span>
-                <!-- EXCEL UPLOAD BUTTon  -->
-                <!-- @if (isAdmin) {
+ 
+    @if (globalSearchValue) {
       <p-button
-        label="Import Excel"
-        icon="pi pi-file-excel"
-        severity="success"
-        [outlined]="true"
-        (onClick)="openExcelUpload()" />
-    } -->
-                <!-- 3 dot button -->
-                @if (isAdmin && rowData.agentID !== null ) {
-                <button pButton icon="pi pi-ellipsis-v" class="p-button-text p-button-sm"
-                  (click)="menudrop.toggle($event)" title="menu">
-                </button>
-                }
-                <!-- Static dropdown -->
-                <p-popover #menudrop [appendTo]="'body'">
-                  <div class="d-flex flex-column">
-                    <!-- <p-button
-        icon="pi pi-pencil"
-        [text]="true"
+        label="Clear"
+        icon="pi pi-times"
         severity="secondary"
-        size="small"
-        pTooltip="Update Designation"
-        tooltipPosition="top"
-        (click)="openUpdateDesigDialog(rowData)" /> -->
+        [outlined]="true"
+        (onClick)="clearSearchGlobal()" />
+    }
+  </div> -->
+</div>
 
-
-                    <button class="menu_item_drop" (click)="openAgentDialog(rowData)">
-                      <i class="pi pi-eye me-2 "></i>
-                      View Details
-                    </button>
-
-                    <button class="menu_item_drop" (click)="openUpdateDesigDialog(rowData)">
-                      <i class="pi pi-pencil me-2"></i>
-                        Edit Details
-                    </button>
-                     <button class="menu_item_drop"  (click)="openUpdateBranchDialog(rowData, rowNode.node)"  >
-                      <i class="pi pi-map-marker"></i>
-                      Change Branch
-                    </button>
-
-                    <button class="menu_item_drop" (click)="openChangeParentDialog(rowData, rowNode)">
-                      <i class="pi pi-users"></i>
-                      Change Parent
-                    </button>
-
-                     
-
-                    @if (statusLoadingMap[rowData.agentID]) {
-                    <i class="pi pi-spin pi-spinner" style="font-size:1rem"></i>
-                    } @else {
-                    <button class="menu_item_drop" (click)="toggleStatus(rowData)">
-                      <i class="pi pi pi-ban me-2"></i>
-                      Deactivate Member
-                    </button>
-                    <!-- <p-button
-      class="menu_item_drop"
-      [label]="rowData.isActive  ? 'Inactive' : 'Active'"
-      [icon]="rowData.isActive  ? 'pi pi-ban' : 'pi-check-circle'"
-      [severity]="rowData.isActive  ? 'danger' : 'success'"
-      [pTooltip]="rowData.isActive  ? 'Click to Deactivate' : 'Click to Activate'"
-      tooltipPosition="top"
-      size="small"
-      [text]="true"
-      [raised]="true"
-      (click)="toggleStatus(rowData)" /> -->
-                    }
-                   
-
-                  </div>
-
-                  <!-- <ng-template pTemplate="item">
-    <ul class="p-menu-list m-0 p-0">
-    
-      <li class="p-menuitem" (click)="activeAgent()">
-        <a class="p-menuitem-link">
-          <span class="pi pi-check me-2"></span>
-          <span class="p-menuitem-text">Active Agent</span>
-        </a>
-      </li>
-    </ul>
-  </ng-template> -->
-                </p-popover>
-              </span>
-
-            </td>
-
-          </tr>
-        </ng-template>
-      </p-treeTable>
+  <!-- ── Tree table  -->
+  <div class="card p-2 shadow-sm bg-light position-relative" style="min-height: 300px;">
+  
+  @if (loading && filteredTreeData.length === 0) {
+    <div class="d-flex flex-column justify-content-center align-items-center position-absolute top-0 start-0 w-100 h-100 bg-white border rounded" style="z-index: 10; min-height: 300px;">
+      <p-progressSpinner 
+        class="w-3rem h-3rem" 
+        strokeWidth="3" 
+        animationDuration=".5s" />
+      <span class="text-muted mt-2 fw-semibold">Loading agents...</span>
     </div>
-  </div><!-- /card -->
+  }
+
+  <div class="table-wrapper">
+    <p-treeTable 
+      [value]="filteredTreeData" 
+      [lazy]="true" 
+      [loading]="loading && filteredTreeData.length > 0" 
+      (onNodeExpand)="loadChildren($event)"
+      selectionMode="single" 
+      [(selection)]="selectedNode" 
+      (onNodeSelect)="onNodeSelect($event)"  
+      [scrollable]="true"  
+      scrollHeight="calc(100vh - 260px)"  
+      class="custom-tree-table p-treetable-sm">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th class="no_wrap_cell col-name">Name</th>
+          <th>Code</th>
+          <th>Customer No</th>
+          <th>Role</th>
+          <th>Designation</th>
+          <th class="col-status w_12P">Status</th>
+          <th class="col-action">Action</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-rowNode let-rowData="rowData">
+        <tr [ngClass]="'level-' + rowNode.level">
+          <td class="col-name no-wrap no_wrap_cell" data-label="Name">
+            @if (!rowNode.node.leaf) {
+              <p-treeTableToggler [rowNode]="rowNode" />
+            }
+            @if (rowNode.node.loading) {
+              <i class="pi pi-spin pi-spinner text-primary ms-1"></i>
+            }
+            <span class="ms-2">{{ rowData.displayName }}</span>
+          </td>
+
+          <td data-label="Code">{{ rowData.agentCode }}</td>
+          <td data-label="Customer No">{{ rowData.ibnkCustomerNo }}</td>
+          <td data-label="Role">{{ rowData.roleName }}</td>
+          <td data-label="Designation">{{ rowData.designationCode }}</td>
+          <td data-label="Status" class="w_12P">
+            <span [ngClass]="rowData.isActive ? 'text-success' : 'text-danger'" class="small">
+              {{ rowData.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+
+          <td data-label="Action" class="d-flex gap-1">
+            @if (rowData.designationCode !== 'FO') {
+              <p-button icon="pi pi-plus" [text]="true" severity="info" size="small" (click)="openAddDialog(rowNode.node)" />
+            }
+            <span>
+              <p-button icon="pi pi-file-pdf" [text]="true" severity="danger" size="small" pTooltip="Download Agent Report" tooltipPosition="left" (click)="downloadPdf(rowData)" />
+            </span>
+            <span>
+              @if (isAdmin && rowData.agentID !== null) {
+                <button pButton icon="pi pi-ellipsis-v" class="p-button-text p-button-sm" (click)="menudrop.toggle($event)" title="menu"></button>
+              }
+              <p-popover #menudrop [appendTo]="'body'">
+                <div class="d-flex flex-column">
+                  <button class="menu_item_drop" (click)="openAgentDialog(rowData)">
+                    <i class="pi pi-eye me-2"></i> View Details
+                  </button>
+                  <button class="menu_item_drop" (click)="openUpdateDesigDialog(rowData)">
+                    <i class="pi pi-pencil me-2"></i> Edit Details
+                  </button>
+                  <button class="menu_item_drop" (click)="openUpdateBranchDialog(rowData, rowNode.node)">
+                    <i class="pi pi-map-marker"></i> Change Branch
+                  </button>
+                  <button class="menu_item_drop" (click)="openChangeParentDialog(rowData, rowNode)">
+                    <i class="pi pi-users"></i> Change Parent
+                  </button>
+                  @if (statusLoadingMap[rowData.agentID]) {
+                    <i class="pi pi-spin pi-spinner" style="font-size:1rem"></i>
+                  } @else {
+                    <button class="menu_item_drop" (click)="toggleStatus(rowData)">
+                      <i class="pi pi-ban me-2"></i> Deactivate Member
+                    </button>
+                  }
+                </div>
+              </p-popover>
+            </span>
+          </td>
+        </tr>
+      </ng-template>
+    </p-treeTable>
+  </div>
+</div>
+  <!-- /card -->
 
 </div><!-- /network-container -->
 

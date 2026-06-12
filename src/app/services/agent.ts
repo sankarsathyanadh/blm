@@ -3,7 +3,7 @@
 // import { HttpClient  } from '@angular/common/http';
 // import { Injectable } from '@angular/core';
 // import { Observable } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, shareReplay, timeout, retry } from 'rxjs';
 
@@ -140,16 +140,39 @@ deactivateAgent(agentID: number): Observable<any> {
   return this.http.get(`${this.baseUrl}/agent/${agentID}`);
 }
 
+
+
 updateParent(agentID: number, newParentID: number): Observable<any> {
-  // alert(agentID )
-  // alert( newParentID)
-return this.http
-    .post(`${this.baseUrl}/Agent/UpdateParent/${agentID}/${newParentID}`, {})
+  // Explicitly build the payload layout required by the API
+  const payload = {
+    AgentID: Number(agentID),
+    parent_agentid: Number(newParentID)
+  };
+
+  // Enforce correct Content-Type headers for JSON parsing
+  const httpOptions = {
+    headers: new HttpHeaders({
+      'Content-Type': 'application/json'
+    })
+  };
+
+  console.log(' Sending Fixed HTTP POST Request:', {
+    url: `${this.baseUrl}/Agent/UpdateParent/${agentID}/${newParentID}`,
+    body: payload
+  });
+
+  // Pass the payload body and options to prevent backend thread deadlocks
+  return this.http
+    .post<any>(
+      `${this.baseUrl}/Agent/UpdateParent/${agentID}/${newParentID}`, 
+      payload, 
+      httpOptions
+    )
     .pipe(
-      timeout(30000),   //  fail after 30s instead of hanging forever
+      timeout(30000),   // 30 seconds guardian timeout
       retry({
-        count: 1,       //  retry 2 times before giving error
-        delay: 2000     //  wait 2s between retries
+        count: 1,       // Single retry structural delay
+        delay: 2000     
       })
     );
 }
@@ -200,5 +223,8 @@ updateMappedBranches(agentID: number, branchIDs: number[]): Observable<any> {
     agentID,
     branchIDs
   });
+}
+getBeneficiaryAccounts(customerNo: string): Observable<any> {
+  return this.http.get(`${this.baseUrl}/shareholder/beneficiary-accounts/${customerNo}`);
 }
 }

@@ -1,9 +1,8 @@
 {
   "/api": {
-    "target": "https://imkttest.icrats.in",
+    "target": "https://blm-mkt.icrats.in",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
   }
 }
-
