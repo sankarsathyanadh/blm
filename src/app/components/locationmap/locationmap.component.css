@@ -1,0 +1,71 @@
+.marker-info{
+ background:white;
+ padding:5px 10px;
+ border-radius:8px;
+ box-shadow:0 2px 8px rgba(0,0,0,.3);
+ margin-bottom:5px;
+ text-align:center;
+ font-size:12px;
+}
+
+.customer{
+ font-weight:bold;
+}
+
+.time{
+ color:#555;
+}
+
+.timeline-container {
+  height: 600px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+}
+
+.timeline-item {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+/* The dot on the timeline */
+.timeline-node {
+  width: 16px;
+  height: 16px;
+  left: -9px; /* Centers the dot on the border */
+  top: 6px;
+  z-index: 1;
+}
+
+.timeline-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.timeline-item:hover .timeline-card {
+  transform: translateY(-2px);
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+}
+
+/* Highlight the active item */
+.timeline-item.active-visit .timeline-card {
+  border-left: 4px solid #0d6efd !important;
+  background-color: #e9ecef;
+}
+
+.timeline-item.active-visit .timeline-node {
+  background-color: #ffc107 !important; /* Visual change for active dot */
+}
+
+/* Customizing scrollbar for webkit browsers */
+.timeline-container::-webkit-scrollbar {
+  width: 6px;
+}
+.timeline-container::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+.timeline-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1; 
+  border-radius: 4px;
+}
+.timeline-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8; 
+}

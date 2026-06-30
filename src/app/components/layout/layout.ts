@@ -77,6 +77,18 @@ import { Auth } from '../../services/auth';
               <span class="d-none d-md-block" >Logout</span>
             }
           </div>
+              <!-- <div class="sidebar-item" routerLink="/locationmap" routerLinkActive="active">
+            <i class="pi pi-th-large"></i>
+            @if (!isCollapsed()) {
+              <span>Locations</span>
+            }
+          </div>
+             <div class="sidebar-item" routerLink="/ExcelCreation" routerLinkActive="active">
+            <i class="pi pi-th-large"></i>
+            @if (!isCollapsed()) {
+              <span>Excel</span>
+            }
+          </div> -->
         </div>
       </div>
 

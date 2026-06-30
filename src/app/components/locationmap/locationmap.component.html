@@ -1,0 +1,66 @@
+<!-- eslint-disable @angular-eslint/template/prefer-control-flow -->
+<!-- eslint-disable @angular-eslint/template/interactive-supports-focus -->
+<!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
+<div class="container-fluid py-3">
+  <div class="card shadow-sm">
+    <div class="card-header bg-white fw-bold">
+      Executive Visit Tracking
+    </div>
+
+    <div class="card-body p-0">
+      <div class="row g-0">
+        
+        <div class="col-md-4 col-lg-3 p-3 timeline-container border-end">
+          <h6 class="text-muted mb-4">Visit Schedule</h6>
+          
+          <div class="ms-2 border-start border-2 border-primary position-relative">
+            
+            <div *ngFor="let visit of executiveVisits; let i = index" 
+                 class="timeline-item position-relative mb-4 ps-4"
+                 [ngClass]="{'active-visit': activeIndex === i}"
+                 (click)="onTimelineClick(i)">
+                 
+              <span class="timeline-node position-absolute bg-primary border border-2 border-white rounded-circle"></span>
+              
+              <div class="card border-0 shadow-sm timeline-card">
+                <div class="card-body p-2">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h6 class="mb-0 text-dark">{{ visit.customerName }}</h6>
+                    <span class="badge bg-light text-dark border">{{ visit.collectedDate }}</span>
+                  </div>
+                  <small class="text-muted d-block">
+                    <i class="bi bi-person-badge me-1"></i> Executive: <b>{{ visit.executiveName }}</b>
+                  </small>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-8 col-lg-9">
+          <google-map height="600px" width="100%" [center]="center" [zoom]="zoom">
+            
+            <map-marker
+              #markerRef="mapMarker"
+              *ngFor="let marker of markers; let i = index"
+              [position]="marker.position"
+              [title]="marker.customerName"
+              (mapClick)="openInfo(markerRef, marker); activeIndex = i">
+            </map-marker>
+
+            <map-info-window>
+              <div class="info-window" style="min-width: 180px;">
+                <h6 class="mb-2 text-primary border-bottom pb-1">{{ selectedMarker?.customerName }}</h6>
+                <div class="mb-1"><small class="text-muted">Executive:</small> <b>{{ selectedMarker?.executiveName }}</b></div>
+                <div><small class="text-muted">Time:</small> <b>{{ selectedMarker?.collectedDate }}</b></div>
+              </div>
+            </map-info-window>
+
+          </google-map>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>

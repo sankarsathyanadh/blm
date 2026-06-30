@@ -915,7 +915,7 @@ get isStaffRole(): boolean {
 
   const name = (role?.roleName || '').toLowerCase();
 
-  return name.includes('staff') || name.includes('salaried');
+  return name.includes('staff');
 }
 
 

@@ -37,7 +37,16 @@ export const routes: Routes = [
       {
         path : 'designation',
         loadComponent:() => import('./components/designation/designation.component').then(m=>m.DesignationComponent)
+      },
+      {
+        path : 'locationmap',
+        loadComponent:() => import('./components/locationmap/locationmap.component').then(m=>m.LocationmapComponent)
+      },
+      {
+        path : 'ExcelCreation',
+        loadComponent:() => import('./components/excelcreationib/excelcreationib.component').then(m=>m.ExcelcreationibComponent)
       }
+
 
     ]
   },
