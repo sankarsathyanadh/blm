@@ -286,7 +286,7 @@ get selectedAgentBranchName(): string {
     this._buildForm();
      this._buildUpdateDesigForm(); 
     this._loadRoot();
-    // this._loadAllAgentsWithDetails();  
+    this._loadAllAgentsWithDetails();  
   }
 
   ngOnDestroy(): void {
@@ -335,7 +335,7 @@ private _loadRoot(): void {
         const requests = res.map(child =>
           this.agentService.getAgentByIdinChild(child.agentID)
         );
-
+         
         forkJoin(requests).subscribe({
           next: (detailsArray) => {
 
@@ -343,7 +343,7 @@ private _loadRoot(): void {
             const mergedData = res.map((child, index) => {
               const details = detailsArray[index];
               // alert(child);
-              // alert(JSON.stringify(details.designationCode ));
+              // alert(JSON.stringify(details ));
               return {
                 
                 ...child,
@@ -1330,6 +1330,7 @@ openChangeParentDialog(rowData: any, node: any): void {
  * Runs in O(N) linear time and uses an iterative stack to prevent stack overflows on deep trees.
  */
 private _flattenAndFilterTree(nodes: TreeNode[], currentAgentID: number, currentRowNode: any): any[] {
+  
   const result: any[] = [];
   if (!nodes || nodes.length === 0) return result;
 
@@ -2497,6 +2498,8 @@ private async _loadAllAgentsWithDetails(): Promise<void> {
     }
     this.allAgentsFlat = all;
     console.log('All agents loaded:', all.length);
+    alert('All agents loaded:'+ JSON.stringify(all));
+    alert('All agents loaded:'+  this.allAgentsFlat);
     this.cd.markForCheck();
   } catch {
     console.warn('Failed to load all agents');
@@ -2517,4 +2520,5 @@ private async _collectAll(agent: any, result: any[]): Promise<void> {
     }
   } catch {  console.log("Search Catch") }
 }
+
 }
