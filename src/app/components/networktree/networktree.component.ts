@@ -315,6 +315,80 @@ get selectedAgentBranchName(): string {
   }
 
   // ── Tree loading ───────────────────────────────────────────
+// private _loadRoot(): void {
+//   this.loading = true;
+
+//   this.agentService
+//     .getChildren()
+//     .pipe(takeUntil(this.destroy$))
+//     .subscribe({
+//       next: (res: any[]) => {
+
+//         if (!res?.length) {
+//           this.treeData = [];
+//           this.filteredTreeData = [];
+//           this.loading = false;
+//           return;
+//         }
+
+//         // ✅ Step 1: call designation API for each root child
+//         const requests = res.map(child =>
+//           this.agentService.getAgentByIdinChild(child.agentID)
+//         );
+         
+//         forkJoin(requests).subscribe({
+//           next: (detailsArray) => {
+
+//             // ✅ Step 2: merge data properly
+//             const mergedData = res.map((child, index) => {
+//               const details = detailsArray[index];
+//               // alert(child);
+//               // alert(JSON.stringify(details ));
+//               return {
+                
+//                 ...child,
+//                 //  Adjust path based on your API response
+//                 designationCode: details?.designationCode ?? '—',
+//                 grade: details?.designationGrade  ?? '—'
+//               };
+//             });
+
+//             // ✅ Step 3: convert to tree nodes
+//             const nodes: TreeNode[] = this._toTreeNodes(mergedData);
+
+//             // ✅ Step 4: root node
+//             const root: TreeNode = {
+//               data: {
+//                 displayName: 'BLM Admin',
+//                 agentCode: 'BLM0000000000',
+//                 roleName: 'Admin',
+//                 isActive: true,
+//                 agentID: null,
+//                 ibnkCustomerNo: '—',
+//                 ibnkShareFolioNum: '—',
+//               },
+//               children: nodes,
+//               leaf: false,
+//               expanded: true,
+//             };
+
+//             // ✅ Step 5: assign
+//             this.treeData = [root];
+//             this.filteredTreeData = [root];
+//             this.loading = false;
+//             this.cd.markForCheck();
+//           },
+//           error: () => {
+//             this.loading = false;
+//           }
+//         });
+//       },
+//       error: () => {
+//         this.loading = false;
+//         this.cd.markForCheck();
+//       }
+//     });
+// }
 private _loadRoot(): void {
   this.loading = true;
 
@@ -323,7 +397,6 @@ private _loadRoot(): void {
     .pipe(takeUntil(this.destroy$))
     .subscribe({
       next: (res: any[]) => {
-
         if (!res?.length) {
           this.treeData = [];
           this.filteredTreeData = [];
@@ -331,32 +404,27 @@ private _loadRoot(): void {
           return;
         }
 
-        // ✅ Step 1: call designation API for each root child
         const requests = res.map(child =>
           this.agentService.getAgentByIdinChild(child.agentID)
         );
          
         forkJoin(requests).subscribe({
           next: (detailsArray) => {
-
-            // ✅ Step 2: merge data properly
             const mergedData = res.map((child, index) => {
               const details = detailsArray[index];
-              // alert(child);
-              // alert(JSON.stringify(details ));
+              
+              // Removed the intrusive alert() statements here
+              
               return {
-                
                 ...child,
-                //  Adjust path based on your API response
+                parentName: 'BLM Admin', // ✅ Roots are introduced by the Admin
                 designationCode: details?.designationCode ?? '—',
                 grade: details?.designationGrade  ?? '—'
               };
             });
 
-            // ✅ Step 3: convert to tree nodes
             const nodes: TreeNode[] = this._toTreeNodes(mergedData);
 
-            // ✅ Step 4: root node
             const root: TreeNode = {
               data: {
                 displayName: 'BLM Admin',
@@ -366,27 +434,22 @@ private _loadRoot(): void {
                 agentID: null,
                 ibnkCustomerNo: '—',
                 ibnkShareFolioNum: '—',
+                parentName: '—' // ✅ Admin has no parent
               },
               children: nodes,
               leaf: false,
               expanded: true,
             };
 
-            // ✅ Step 5: assign
             this.treeData = [root];
             this.filteredTreeData = [root];
             this.loading = false;
             this.cd.markForCheck();
           },
-          error: () => {
-            this.loading = false;
-          }
+          error: () => { /* ... existing error handler ... */ }
         });
       },
-      error: () => {
-        this.loading = false;
-        this.cd.markForCheck();
-      }
+      error: () => { /* ... existing error handler ... */ }
     });
 }
 loadChildren(event: { node: any }): void {
@@ -416,29 +479,50 @@ loadChildren(event: { node: any }): void {
         const requests = res.map(child =>
           this.agentService.getAgentByIdinChild(child.agentID)
         );
+         const parentDisplayName = node.data.displayName || '—';
+         forkJoin(requests).subscribe({
+  next: (detailsArray) => {
+    const mergedData = res.map((child, index) => {
+      const details = detailsArray[index];
+      return {
+        ...child,
+        // No need to inject parentName here anymore, _toTreeNodes handles it!
+        designationCode: details?.designation?.designationCode ?? '—',
+        grade: details?.designation?.grade ?? '—'
+      };
+    });
 
+    // ✅ Pass the parentDisplayName into the converter
+    node.children = this._toTreeNodes(mergedData, parentDisplayName);
+    node.leaf = false;
+    node.loading = false;
+    node.expanded = true;
+
+    this.filteredTreeData = [...this.filteredTreeData];
+    this.cd.markForCheck();
+  },
         // Step 2: Handle forkJoin safely
-        forkJoin(requests).subscribe({
-          next: (detailsArray) => {
-            const mergedData = res.map((child, index) => {
-              const details = detailsArray[index];
-              return {
-                ...child,
-                designationCode: details?.designation?.designationCode ?? '—',
-                grade: details?.designation?.grade ?? '—'
-              };
-            });
+        // forkJoin(requests).subscribe({
+        //   next: (detailsArray) => {
+        //     const mergedData = res.map((child, index) => {
+        //       const details = detailsArray[index];
+        //       return {
+        //         ...child,
+        //         designationCode: details?.designation?.designationCode ?? '—',
+        //         grade: details?.designation?.grade ?? '—'
+        //       };
+        //     });
 
-            // Step 3: Assign children nodes directly onto the reference node
-            node.children = this._toTreeNodes(mergedData);
-            node.leaf = false;
-            node.loading = false;
-            node.expanded = true;
+        //     // Step 3: Assign children nodes directly onto the reference node
+        //     node.children = this._toTreeNodes(mergedData);
+        //     node.leaf = false;
+        //     node.loading = false;
+        //     node.expanded = true;
 
-            // CRITICAL FIX: Destructure the whole array cleanly to refresh PrimeNG state tracking
-            this.filteredTreeData = [...this.filteredTreeData];
-            this.cd.markForCheck();
-          },
+        //     // CRITICAL FIX: Destructure the whole array cleanly to refresh PrimeNG state tracking
+        //     this.filteredTreeData = [...this.filteredTreeData];
+        //     this.cd.markForCheck();
+        //   },
           error: () => {
             node.loading = false;
             this.filteredTreeData = [...this.filteredTreeData];
@@ -456,18 +540,37 @@ loadChildren(event: { node: any }): void {
     });
 }
 
-private _toTreeNodes(data: any[]): TreeNode[] {
-  return data.map((x) => ({
-    data: {
-      ...x   // ✅ keep original API values (designationCode, grade, designationID etc.)
-    },
-    children: [],
-    leaf: false,
-    expanded: false,
-    partialSelected: false
-  }));
-}
+// private _toTreeNodes(data: any[]): TreeNode[] {
+//   return data.map((x) => ({
+//     data: {
+//       ...x   //  keep original API values (designationCode, grade, designationID etc.)
+//     },
+//     children: [],
+//     leaf: false,
+//     expanded: false,
+//     partialSelected: false
+//   }));
+// }
+private _toTreeNodes(data: any[], parentName?: string): TreeNode[] {
+  return data.map((x) => {
+    // 1. If x already has a parentName (like 'BLM Admin' from our manual map), use it.
+    // 2. Otherwise, use the passed parentName from the parameter.
+    // 3. Fallback to '—' if neither exists.
+    const resolvedParentName = x.parentName || parentName || '—';
 
+    return {
+      data: {
+        ...x,   // keep original API values
+        parentName: resolvedParentName // ✅ Automatically inject parent name
+      },
+      // If the API ever returns nested children directly, trickle the current display name down
+      children: x.children?.length ? this._toTreeNodes(x.children, x.displayName) : [],
+      leaf: false,
+      expanded: false,
+      partialSelected: false
+    };
+  });
+}
   // ── Search ───────────────────────────────────────────────────────────────
  // ── Search button click ───────────────────────────────────────────────
 searchAgents(): void {
@@ -2498,8 +2601,8 @@ private async _loadAllAgentsWithDetails(): Promise<void> {
     }
     this.allAgentsFlat = all;
     console.log('All agents loaded:', all.length);
-    alert('All agents loaded:'+ JSON.stringify(all));
-    alert('All agents loaded:'+  this.allAgentsFlat);
+    // alert('All agents loaded:'+ JSON.stringify(all));
+    // alert('All agents loaded:'+  this.allAgentsFlat);
     this.cd.markForCheck();
   } catch {
     console.warn('Failed to load all agents');

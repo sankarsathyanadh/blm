@@ -210,6 +210,7 @@
       <ng-template pTemplate="header">
         <tr>
           <th class="no_wrap_cell col-name">Name</th>
+          <!-- <th>Introduced By</th> -->
           <th>Code</th>
           <th>Customer No</th>
           <th>Role</th>
@@ -230,7 +231,11 @@
             }
             <span class="ms-2">{{ rowData.displayName }}</span>
           </td>
-
+           <!-- <td data-label="Introduced By">
+      <span class="text-muted small">
+        {{ rowData.parentName || '—' }}
+      </span>
+    </td> -->
           <td data-label="Code">{{ rowData.agentCode }}</td>
           <td data-label="Customer No">{{ rowData.ibnkCustomerNo }}</td>
           <td data-label="Role">{{ rowData.roleName }}</td>

@@ -14,7 +14,7 @@ import { Auth } from '../../services/auth';
       <div class="sidebar-menu" [style.width]="isCollapsed() ? '80px' : '250px'">
         <div class="p-md-3 d-flex align-items-center justify-content-between border-bottom border-secondary">
           @if (!isCollapsed()) {
-            <span class="fw-bold text-truncate d-none d-md-block">MLM </span>
+            <span class="fw-bold text-truncate d-none d-md-block">BLM </span>
           }
           <p-button 
             [icon]="isCollapsed() ? 'pi pi-angle-right' : 'pi pi-angle-left'" 
